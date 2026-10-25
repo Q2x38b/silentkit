@@ -427,6 +427,26 @@ next-move prediction + bearing, read-only), trajectories / ESP / chams, radar, a
 notification / toast system. See `references/modules.json` for the full catalogue with per-module technique, hook,
 anticheat-notes and settings.
 
+**Three more techniques worth knowing (added from live work):**
+- **Knockback steering ("hit-flick").** A sprint-hit's bonus knockback is applied in the *attacker's facing*
+  direction, so turning the server-side yaw a few degrees off the target at the hit sends the victim off at that angle
+  (alternate left/right to keep them in combo range, or drive them toward a ledge). Keep the pitch on-target so reach/
+  raytrace stays valid. It's inherently flag-prone — a large or every-hit flick fails a strict "looking at target"
+  check — so make it defensible the way anti-knockback is: a **Chance** gate (flick only some hits), a **small angle**,
+  a **1-tick window** (only the hit's own movement packet carries the flick), and ideally a **packet-choke** (hold
+  outgoing movement during the flick, flush right after the attack) so the server sees a controlled sequence rather
+  than a sustained off-target look.
+- **Ping-adaptive timing (the honest version).** Everything that sits behind the server — packet delays, backtrack,
+  attack freshness — has a safe budget of `lag-comp-window − your ping` (windows cluster ~150–200 ms). A shared
+  **network-conditions monitor** (smoothed ping + jitter + a spike flag, read from the keep-alive/transaction RTT) lets
+  those modules self-cap to that budget and **back off on a spike**, instead of fixed delays that are fine at 30 ms and
+  suicidal at 200 ms. It only *measures* latency; never fake it (inconsistent timing is what the timer check catches).
+- **Client-side cheat detection (analysis, not a cheat).** You can score *other* players from the data you legitimately
+  receive — their position stream and head rotation — with the same signals the server ACs use: sustained over-vanilla
+  speed, airborne-with-no-gravity, inhuman instant head-turns, near-zero turn-speed variance. Decay the score so a flag
+  means a sustained pattern, and keep thresholds conservative for accuracy. A clean way to reuse everything you learned
+  building bypasses, pointed the other direction.
+
 ---
 
 ## 8. Render / world-visual techniques (detection-free, but worth doing right)

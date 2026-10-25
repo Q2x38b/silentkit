@@ -39,6 +39,30 @@ This is the backbone of any load-time code modification on the JVM. A **fileless
 hands the agent its payload through an in-memory/local channel (e.g. a byte buffer the agent reads on attach) rather
 than writing a jar to disk, which is simply fewer moving parts and no temp-file cleanup — not an evasion technique.
 
+### 1a. The attach-inject sequence (what `agentmain` actually does, in order)
+
+The agent is tiny and references **no engine classes itself** (so it loads before/independent of the game's state).
+Its job, in order:
+1. **Find the loader that holds the engine.** Probe candidate loaders for a known engine class (Mojang-named), as in
+   §3a — that loader becomes the parent of the child loader.
+2. **Make the client's classes loadable** — build the `Map<String,byte[]>` from the handed-in jar bytes and construct
+   the child loader (§3a) over them.
+3. **Start the client on the engine's main thread**, not the attach thread — reflectively call the client entry point
+   (`bridge.start()`), scheduling it onto the game's tick/executor so it initialises on the right thread with the
+   render/ tick context live.
+4. **Apply the mixins last**, once the client is up, by running the inject-time mixin engine (§5) over the already-
+   loaded target classes. Order matters: the client's systems must exist before hooks start firing into them.
+Pass the agent a small options string (`jar=<path-or-handle>;status=<file>`) and have it write a **status file** the
+injector polls, so the external injector UI can report success/failure without a socket.
+
+### 1b. Two-agent boot handoff (one code path for dev and production)
+
+The production injector has the decrypted client **bytes in memory**; a dev injector has a **jar on disk**. To avoid
+two inject code paths that drift, load **two agents**: a tiny **boot** agent first that only *publishes the bytes*
+(from the injector's buffer in prod, or by reading the dev jar *inside the target JVM* in dev) into a known holder
+(a system property or a static field in a host-loader class), then the **client** agent that reads that holder and
+runs the sequence above. The real inject logic is identical in both modes — only the trivial boot agent differs.
+
 ---
 
 ## 2. Classloaders & loading from in-memory bytes
@@ -78,6 +102,39 @@ Keys to making it GC-clean (so you don't leak a loader per reload):
 A tiny "host bridge" interface (defined in the host loader, implemented by the child) is the clean handoff point: the
 host calls `bridge.start()` / `bridge.stop()` and never otherwise reaches into the child. `stop()` doubles as both the
 reload teardown and the uninject teardown, so there's one correct shutdown path.
+
+### 3a. The disposable loader in detail (the parts that are subtly hard to get right)
+
+A production version of this is more than "new URLClassLoader." The pieces that actually make it work across repeated
+reloads:
+
+- **Parent = the game's loader, not the app/system loader.** The child's parent must be whatever loaded the engine
+  (Minecraft), so the client resolves engine + library classes normally. Find it at inject time by walking up from a
+  known engine class's `getClassLoader()` (e.g. `Class.forName("net.minecraft.client.Minecraft", false, systemLoader)`
+  across candidate loaders — a launcher-agnostic agent probes for the loader that actually holds the Mojang-named
+  classes, which works on vanilla / Fabric / Quilt / Forge / NeoForge / Lunar / Feather alike as long as names aren't
+  obfuscated).
+- **`registerAsParallelCapable()`** in the child loader's static init — the game loads classes on many threads; a
+  non-parallel loader serializes (and can deadlock) under that.
+- **Define classes lazily, transform on define.** Don't eagerly define the whole jar. Override `findClass` to define
+  each `dev/yourclient/**` class from the byte map on first use, and run your **class transformer in that same step**
+  (e.g. rewrite accessor / duck-interface call sites to `invokedynamic`, see §5). One code path defines-and-rewrites,
+  whether a class loads now or an hour into the session.
+- **Split "disposable" from "permanent."** A few infra classes must **survive** a reload/uninject — the host bridge,
+  and a small **stable runtime** package your rewritten call sites bind to (the `invokedynamic` bootstrap methods, any
+  shared enum the host holds). Define *those* into the **host/game loader** (permanent), and everything under your
+  client package into the **child** (disposable). If a bootstrap method the game's own code now links against lived in
+  the child, dropping the child would break already-linked call sites. This split is the single most common thing
+  people get wrong.
+- **Dropping the loader frees the code *and its string constants*.** Because the client's classes live only in the
+  child, uninject collects the classes and the interned/constant strings with them. That's *why* per-class string
+  obfuscation is loader-local and why a leaked reference (which pins the loader) also keeps your plaintext in memory —
+  a reason the teardown audit matters beyond just "no restart."
+- **Hidden classes for generated hooks.** Code you generate at inject time (per-target mixin hook classes, §5) should
+  be defined as **hidden classes** via a full-privilege `MethodHandles.Lookup` on a host class that lives in the child
+  loader *and the same package* (`defineHiddenClass` requires the hidden class share a nest/package with its lookup
+  class). That lands the generated hooks in the disposable child (collectable) with private access to your mixin
+  members, instead of polluting a real package name.
 
 ---
 

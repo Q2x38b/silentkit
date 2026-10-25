@@ -2,6 +2,15 @@
 
 Notable changes to the SilentKit skills. Newest first.
 
+## 2026-10-25 (later)
+
+### silentkit-runtime
+- **§1a/§1b** — added the attach-inject *sequence* (find engine loader → make client classes loadable → start client on the game thread → apply mixins last) and the two-agent boot handoff (one inject path for dev + production).
+- **§3a** — deep dive on the disposable loader: parent = the engine's loader (launcher-agnostic probe by Mojang name), `registerAsParallelCapable`, lazy define-and-transform, the disposable/permanent split (host-loader runtime infra vs child-loader client), dropping the loader frees code *and* string constants, and hidden-class generated hooks via a same-package full-privilege Lookup.
+
+### silentkit-modules
+- **§7** — three techniques from live work: knockback steering (hit-flick) and how to make it defensible (chance + small angle + 1-tick window + packet-choke); ping-adaptive timing via a network-conditions monitor; client-side cheat detection as analysis.
+
 ## 2026-10-25
 
 ### silentkit-runtime
