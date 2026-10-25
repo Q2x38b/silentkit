@@ -225,7 +225,7 @@ mutate entity state), cap the tick budget.
     confirms the block before they touch it. So a clean clutch = **(a) place against a visible, reachable face only**
     (raytrace the exact hit point a real click makes — don't fire a place the server will reject), **(b) place EARLY
     with lead** (against a wall while still N blocks up, not at the last reachable moment), **(c) one place per tick in
-    order**, and **(d) accept it's only clean at sane ping**. (chat-v4's undetected clutch does exactly this: A* block-
+    order**, and **(d) accept it's only clean at sane ping**. (a mature client's undetected clutch does exactly this: A* block-
     path planning + visible-face checks + an exact-hit raytrace + simulating the landing is *stable* before committing.)
     When there's nothing to place against up high (an open drop), lead is impossible — that's when you fall back to
     **MLG** instead.

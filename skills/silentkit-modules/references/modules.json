@@ -132,7 +132,7 @@
    "friends": "a case-insensitive name set persisted to friends.json; Friends.is(name) gates radar colours, name tags and the Ignore Friends filter; toggled with a chat command",
    "teammate_detection": "never attack your own team: isTeammate = same vanilla scoreboard team, OR same non-white name colour as you (team colour, else the first colour in the display name; -1 when white/none so two white names don't match). Uses the entity's own team/display-name colour, NOT getTeamColor() (ESP outline overrides that)",
    "anti_bot_filter": "the Ignore Bots filter reads AntiBotModule.isBot(e), a per-tick cached behaviour-score verdict (see modules.AntiBot), so aura/clicker/visuals all skip flagged fake players through the same gate",
-   "dev_hook": "-Dnihil.dev.standsAsPlayers makes armor stands count as Players, to test player-only visuals/aim on a summoned dummy"
+   "dev_hook": "a dev system property makes armor stands count as Players, to test player-only visuals/aim on a summoned dummy"
   },
   "packet_engine": {
    "about": "One service holds packets on the client's own connection and releases them in order; backs BackTrack, FakeLag, Blink, KnockbackDelay and Velocity-delay. Incoming decided on the Netty thread, released on the main thread through vanilla's own dispatch; outgoing queued from any thread and re-sent from the main thread.",

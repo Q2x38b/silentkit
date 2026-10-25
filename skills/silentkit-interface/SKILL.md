@@ -76,7 +76,7 @@ change.
 
 ## 3. The click GUI — floating panels
 
-A Vape/Drip-style floating-panels menu reads as modern and is simple to compose:
+A modern floating-panels menu reads as modern and is simple to compose:
 
 - **Panels** are draggable, collapsible cards (a category list, the navigator, a settings pane). Each remembers its
   rect; persist rects so layout survives restarts. Add **snap-to-grid** on drag and **saved named layouts** (and a
