@@ -165,6 +165,8 @@ name-mapping tables over re-decompiling when you only need the renamed member.
 - Strip any pipelines/registries you added so the engine doesn't try to recompile against your (now gone) assets.
 - Drop all host-side references to child-loader objects (static fields, engine singletons, event-bus registrations,
   captured lambdas) so the loader is collectable; verify with a heap dump across several reloads.
+- Close any dev-only sockets/servers (e.g. the §8 control bridge) so a re-inject can rebind their port — a bound
+  loopback socket held by the old loader is both a port clash and a reference that keeps that loader alive.
 
 Clean teardown is what makes repeated hot-reload viable, and it's what lets an uninject return the process to a plain
 unmodified game — it's good engineering regardless of context, and it's the one and only correct shutdown path shared
@@ -213,6 +215,15 @@ tight edit→build→see loop against a *running* game:
   on a summoned stand.
 - **Patch-failure dumps** — when a hook fails to apply to an already-loaded class, dump the rewritten bytes and run the
   framework's verifier, so a broken mixin is diagnosable from the log instead of a silent no-op.
+- **A localhost control/telemetry bridge — the biggest iteration win.** A dev-only HTTP server bound to `127.0.0.1`
+  inside the running game turns the edit loop from "toggle 20 settings by hand, read chat, repeat" into an automatable
+  one: `GET /state` returns the live config export + player state **and a ring buffer of recent chat lines filtered to
+  anticheat flags**; `POST /config` applies a whole config in one shot (marshal onto the main thread). Because the game
+  and your tooling share the machine, a script (or an agent) can push a setting change, you perform the in-game action,
+  and the script reads back exactly which checks tripped — a closed tuning loop with no GUI. Keep it strictly dev-only:
+  **gate it so it never runs in the shipped/production-injected build** (e.g. off whenever the production loader flag is
+  set), bind to loopback only, and have it `stop()` in the teardown path (next item) so a re-inject can rebind the port.
+  It reads *your own* client state and the chat *you* already see — it is diagnostics, not evasion.
 
 **Deterministic simulation testing.** The reliable way to trust a prediction sim: run it from an explicit `(pos, vel)`
 with a debug method, then **summon the real projectile/entity with that same pos+velocity** and compare where it actually

@@ -180,6 +180,11 @@ the client). Keep the transport generic (any small key/value backend).
 
 - One render abstraction; one adapter per engine version; a world projector that captures the frame's real matrices.
 - Settings are the single source of truth — the GUI renders them, it doesn't duplicate state.
+- Collapse overlapping toggles that answer one question into a single enum. When several booleans gate the same
+  behaviour at different strengths (e.g. "only with a target in range" / "only when the crosshair is on one" / "only
+  once the aim has settled"), they confuse more than they empower and can be set to nonsensical combinations — replace
+  them with one ordered mode ("Off / In Range / On Crosshair / Aim Ready") and show each dependent sub-setting only for
+  the mode that uses it. Carry old config keys forward on load so existing presets don't silently change behaviour.
 - Tokens for every color; one accent drives the theme; design both light and dark if the engine can be either; version
   and migrate the style/config blob.
 - Panels persist their layout; snap + saved layouts; auto-arrange; pop-ups in a top-most layer.

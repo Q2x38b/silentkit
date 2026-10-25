@@ -161,6 +161,21 @@ the *server* yaw so what the server simulates matches the rotation it has:
 - *Slow*: keep your real keys, but kill sprint whenever you're steering more than 45° off the server facing.
 - *None*: leave movement alone (correct for throws/deflects, where steering your walk would be wrong).
 
+**Act on the rotation you actually SEND, not the one you're easing toward — the consistency rule.** A module that
+decides "am I on target / is this placement reachable?" against its *desired* aim point, but fires the action on the
+tick the server only sees the still-easing rotation, acts inconsistently with its own state: the aura hits where it
+isn't looking, the clutch places against a face it isn't pointing at. Gate every server action (attack, place,
+interact) on the rotation that is/will be on the outgoing packet this tick — the transport's current `yaw()/pitch()` —
+not the target you want. With a slow aim speed the desired-vs-sent gap is wide, so it matters most there. For a
+life-or-death placement (clutch), prefer **rotate-first**: aim at the face and only release the action once the sent
+rotation lines up, with an emergency fallback right before the deadline. Anything replaying your sent rotation
+otherwise sees the action land where you weren't looking.
+
+**Keep the server rotation near the camera while you move.** The further the silent yaw swings from where you're
+walking, the harder your motion is to reconcile *even with correction on*. Cap the aim's field of view (≈55°) and
+track fast enough that the sent rotation doesn't lag far behind the target — small divergence + correction reconciles
+cleanly; a wild divergence doesn't, correction or not (correction *off* is the worst case of all).
+
 ---
 
 ## 4. Prediction systems (vanilla-physics sims)
@@ -245,7 +260,11 @@ tick-bound. Click *styles* and fatigue are the start; the levers that actually d
   bottom over a long trade (`0.15 + 0.75·e^(−(t−1.5)/12)`), with a slow random wander on top. Recovery between fights,
   not just monotonic decay.
 - **Injected micro-pauses:** ~1.5% chance per click of an extra 50–150 ms, the kind a real player drops in.
-- **Misclicks:** occasionally skip a click, or add a quick double (18–40 ms apart).
+- **Double-clicks in *every* mode, not just a "humanized" one.** A real mouse always throws the odd double (a bounced
+  switch, a twitchy finger); a burst that is *perfectly* double-click-free is itself a recognisable signature. Fold a
+  few genuine doubles (a 16–42 ms second click, ~6% of clicks) into a plain fixed-CPS mode too — not only into the
+  humanized style — and occasionally skip a click. A distribution check keys on the *absence* of doubles as readily as
+  on uniform gaps.
 - **Modelled press→release hold window** per click — an instantaneous click has zero press-time variance, which is a
   tell on servers that see both edges.
 - **Style rhythms** that still average to the CPS: *Jitter* (steady, spread from the lognormal), *Butterfly* (quick
@@ -499,6 +518,21 @@ The practical upshot: **prediction ACs (Grim) are beaten by being physically con
 the result — while **heuristic ACs (NCP) are beaten by staying under the threshold**. A module that's safe on one can be
 instantly fatal on the other (NoSlow, §10, is the textbook case), which is why the per-module `anticheat_notes` and this
 map matter more than any single "legit mode" switch.
+
+**Three lessons from live testing (worth more than theory):**
+- **Some detectors can be reduced but not removed — spread them out instead.** Anti-knockback is the clearest: the
+  server applies the push *authoritatively*, so cancelling it moves you off the reconstructed position and a clean 100%
+  cancel flags **every** hit. Precision jitter isn't enough on a strict AC. The real lever is a **Chance** setting —
+  reduce only *some* hits (plus a partial %), so the signature reads as occasional lag, not a consistent reduction. A
+  low chance + a modest % flags far less than a perfect cancel; nothing makes it flag-free.
+- **Latency is a hard floor you cannot fake.** The "attacked a position too old" and "timer / micro-lag" families scale
+  directly with ping and barely fire at low ping; they are *not* a module bug to chase at 200 ms. Crucially, a
+  ping/timer *spoof* is self-defeating — inconsistent packet timing is the exact thing the timer detector measures, so
+  "faking ping to look better" makes it worse. Validate at real ping before touching code.
+- **Keep the sent rotation on target *and* near the body.** A silent aura that fires while its eased rotation still
+  lags the target, or that lets the server yaw swing far from where it walks, trips the "attacked out of sight" and
+  "moved incorrectly" checks respectively. Gate actions on the wire rotation (§3) and cap the aim FOV / track fast
+  enough that the two stay close.
 
 ---
 
