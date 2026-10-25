@@ -296,3 +296,33 @@ lands against the sim's predicted landing. A match validates the integrator's co
 divergence localises the wrong constant (a drag, a gravity, an axis-order bug) because the input state was fixed. The
 same approach tests the fall/pearl/wind sims — fix the start state, compare predicted vs observed — and it's repeatable
 precisely because the sims never mutate world or entity state.
+
+---
+
+## 9. Protection & auth (the paid-client layer)
+
+If the client is a paid product, gating *who* can inject and *what* they get is its own layer — standard software
+licensing/DRM, separate from the loader. (This is access control, not anti-forensics: hiding the loader from the OS,
+anti-debugger traps, and tamper watchdogs are out of scope here.)
+
+- **Auth before inject.** The injector signs the user in first — a browser **device flow** (PKCE: the desktop app shows
+  a code, the user approves it on the site, the app polls with a private verifier) yields a **session token**. No valid
+  token, no inject. Bind the session to the machine with an **HWID** so one account isn't shared endlessly (a device
+  cap). Redact the token everywhere it could print (it leaks in process args and logs).
+- **License gate on the server, not the client.** The inject/payload endpoint checks the account has an **active
+  license** (subscription current, key not expired/revoked, account not disabled) and only then releases the payload.
+  Do the check server-side with the session token — a client-side "am I licensed?" flag is trivially patched.
+- **Encrypted delivery.** Ship the real client bytes **encrypted** (e.g. AES-256-GCM), authenticated to the session,
+  decrypted **in memory** by the injector and handed to the agent (§1b) — never written to disk. A dumped jar from a
+  pirate is then ciphertext, and the plaintext only ever lives in the injected JVM.
+- **Over-the-air updates.** Each build is a versioned, encrypted release the server hands out; the client has no
+  self-update (the bytes arrive decrypted from the injector), so "update" means re-inject. A small handshake version
+  (`protocol`) lets the server refuse an outdated injector cleanly instead of failing deep in the inject.
+- **Live kill-switch + dead-man's switch.** A lightweight heartbeat lets the server end a session mid-run (key revoked,
+  licence lapsed) → the client uninjects itself. Pair it with a **fail-closed** rule: if the client can't reach home for
+  a grace window (someone firewalled the domain to dodge a revoke), it uninjects anyway. Cutting the cord is the trigger,
+  not an escape.
+- **Casual-extraction slowdown (legit).** Name-obfuscation (rename-only ProGuard) + per-class string encryption on the
+  *shipped* jar keeps API endpoints and messages out of a trivial `strings`/decompile. It only raises the bar against a
+  casual dump — anything in a JVM you control can ultimately be inspected — and it must survive the inject path (verify
+  an in-game inject after enabling it; string-encrypting the whole client can silently break runtime behavior).
