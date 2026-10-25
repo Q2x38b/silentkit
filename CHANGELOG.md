@@ -2,6 +2,11 @@
 
 Notable changes to the SilentKit skills. Newest first.
 
+## 2026-10-25
+
+### silentkit-runtime
+- **§5 Hooks** — spelled out the inject-time mixin catch: a mixin framework only applies at class *load* time, but an attach-time inject targets already-loaded classes, so the injected build needs its own small engine that applies the *same* mixin classes via `retransformClasses` (handlers → statics in a hidden class, accessors/ducks → `invokedynamic`, added fields → a side table). One mixin source, two apply paths.
+
 ## 2026-10-24 (later)
 
 More live-test lessons, focused on beating a strict aim-analysis check.

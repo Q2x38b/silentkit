@@ -95,9 +95,17 @@ are about to disappear).
 
 Two ways to insert hooks (tick/render/packet) into engine methods:
 - **A mixin framework** (compile-time, annotation-driven `@Inject`/`@Redirect`/`@ModifyVariable` against named
-  signatures, applied at class load). Proven, concise, great tooling. Prefer this where available. In an attach-time
-  injected build where the framework's own load-time transform isn't running, a small shim can apply the compiled mixin
-  classes itself.
+  signatures, applied at class load). Proven, concise, great tooling. Prefer this where available.
+  **The inject-time catch (the detail that trips people up):** a mixin framework applies at class *load* time, but an
+  attach-time inject goes into an *already-running* game whose target classes (`Minecraft`, the local player, the
+  connection) are **already loaded** — so the framework's own transform never fires for them. The clean answer is **one
+  mixin source, two apply paths**: the dev run uses the framework at load time, and the injected build ships its **own
+  small mixin engine** that applies the *same* mixin classes to the already-loaded targets via `retransformClasses`.
+  Such an engine supports what the client actually uses — `@Inject` (HEAD/RETURN/TAIL/INVOKE with ordinal+shift),
+  `@Shadow`, `@Accessor`, duck interfaces, and mixin-added fields — by turning each mixin's handlers into **statics in a
+  hidden class**, accessors/ducks into `invokedynamic`, and added fields into a **side table** keyed by instance (you
+  can't add a real field to a loaded class). Keep the **original bytes** of every retransformed class to restore on
+  uninject. The client code just declares mixins; only the engine touches bytecode.
 - **Load-time ASM/Javassist transforms** (a `ClassFileTransformer` that edits target methods at runtime). More work and
   more fragile, but needed when no mixin framework is available or when you must support obfuscated targets.
 
