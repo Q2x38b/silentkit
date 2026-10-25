@@ -215,7 +215,24 @@ mutate entity state), cap the tick budget.
     is dangerous), and *staircasing* (jump again right after a clutch). "Dangerous" = voids / never settles / exceeds a
     block threshold / would exceed your health after safe-fall and fall-damage-multiplier attributes. Lands in water →
     never dangerous.
+  - **Why an instant block-clutch flags, and how to make it clean (live-tested vs Grim).** Placing a block under
+    yourself in midair and landing on it *the same instant* trips **GroundSpoof** ("claimed on-ground midair") and
+    **Simulation** (your position can't be reached — the server doesn't have the block yet) and **RotationPlace /
+    Post** (place ordered against a flying packet it doesn't match). None of that needs an onGround *spoof* — it's the
+    natural gap between the client placing+landing on a block and the server **confirming** the placement (~your ping
+    worth of ticks; brutal at 150 ms+). A legit human clutch avoids it by placing against a **real wall/ledge with
+    lead** — a couple of blocks *above* where they'll land, so they fall onto it over a tick or two and the server
+    confirms the block before they touch it. So a clean clutch = **(a) place against a visible, reachable face only**
+    (raytrace the exact hit point a real click makes — don't fire a place the server will reject), **(b) place EARLY
+    with lead** (against a wall while still N blocks up, not at the last reachable moment), **(c) one place per tick in
+    order**, and **(d) accept it's only clean at sane ping**. (chat-v4's undetected clutch does exactly this: A* block-
+    path planning + visible-face checks + an exact-hit raytrace + simulating the landing is *stable* before committing.)
+    When there's nothing to place against up high (an open drop), lead is impossible — that's when you fall back to
+    **MLG** instead.
   - **MLG/auto-bucket** reuses the sim to find the landing, then validates a **top-face raytrace** before placing water.
+    It's the clean counterpart to a block-clutch: water goes on **real ground the server already has**, you take no fall
+    damage through normal mechanics, then you pick it back up — no GroundSpoof/Simulation because nothing the server
+    doesn't know about is ever load-bearing. One action per tick, aimed down at a real face.
   - **Mace fall-smash impact timing:** a smash does the most damage on the *last airborne tick*, so hold the attack
     while still falling and only release when `aboutToLand` — step one vanilla fall move ahead (`(vy−0.08)·0.98 − 0.08`)
     and check whether that move collides. A very large drop (>5) smashes immediately rather than risk clipping the

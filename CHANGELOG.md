@@ -2,6 +2,14 @@
 
 Notable changes to the SilentKit skills. Newest first.
 
+## 2026-10-25 (3)
+
+### silentkit-runtime
+- **§9 Protection & Auth** (new) — the paid-client licensing layer: device-flow (PKCE) auth + HWID device binding, server-side license gate, encrypted in-memory payload delivery, versioned OTA, live kill-switch + fail-closed dead-man's switch, and a casual-extraction slowdown (name-obf + string-enc). Access control, not anti-forensics.
+
+### silentkit-modules
+- **§4 Predictions** — why an instant block-clutch flags (GroundSpoof + Simulation + RotationPlace: the gap between placing+landing and the server confirming the block, not an onGround spoof) and how to make it clean: place against a visible, reachable face with LEAD (a couple blocks above the landing so the server confirms first), one place per tick, at sane ping — chat-v4's undetected clutch = A* path + visible-face + exact-hit raytrace + landing-stability sim. MLG is the clean fallback (water on real ground, one action/tick).
+
 ## 2026-10-25 (later)
 
 ### silentkit-runtime
