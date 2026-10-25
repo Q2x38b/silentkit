@@ -106,8 +106,9 @@ when it stops aiming. One `advance()` per tick (or frame) produces a step with, 
 - **GCD snap** (server path only).
 
 Two entry points: `camera(...)` eases from the *live* camera (so your own mouse still counts and the view interpolates
-smoothly — **no grid snap here**, snapping a per-frame camera step reads as a visible stair-step) and `silent(...)`
-seeds from itself/the camera and **does** grid-snap, for the server rotation.
+smoothly) and `silent(...)` seeds from itself/the camera, for the server rotation. **Both must put the rotation the
+server sees on the grid** — see the correction in rule 5 below; a camera aim-assist whose rotations reach the server is
+*not* exempt.
 
 **The mouse-GCD rule (the key anti-detection realism).** A real mouse turns only in whole "counts," so every rotation
 the vanilla client sends is a multiple of a sensitivity-derived step. The engine mirrors the exact vanilla math:
@@ -120,6 +121,23 @@ AimProcessor) flags any rotation delta not on the grid. Rules:
 3. **Carry the sub-count remainder** across ticks instead of snapping-and-dropping it — a real mouse accumulates.
 4. Advance eased aim on a real `dt` time base (sub-tick) so the yaw-rate signal isn't a 20 Hz staircase; snap only the
    value that actually leaves on a packet.
+5. **A camera aim-assist is NOT exempt** (live-tested correction). If the module turns the real view and those rotations
+   reach the server, apply them as **whole mouse counts** too — convert the degree step to counts (`step/gcd`), add the
+   carried remainder, **truncate to a whole count**, apply `count·gcd`, keep the fraction. Done through the mouse-input
+   path (as real hardware is) this renders perfectly smoothly — it is *not* a visible stair-step — and it's the single
+   biggest fix for the aim-GCD/"analysis" check. An aim-assist applying a *fractional* `turn()` flags every rotation.
+
+**Two more aim lessons (live-tested against a strict aim-analysis AC):**
+- **Vary the turn speed on the TICK timescale, not per frame.** The AC samples rotation per server tick (20/s), so
+  per-frame speed noise averages out within a tick and the motion still reads as a *constant* rate (and a constant rate
+  traces a *linear* path — both flag). Re-roll a target speed multiplier (≈0.45–1.6×) every ~100–220 ms, independently
+  for yaw and pitch, and ease toward it. A rate-cap is the usual culprit: catching a strafing target it pins the speed
+  at the cap, so the variation has to be layered back on.
+- **One off-grid contributor re-flags everything.** A clean, grid-snapped aim-assist went straight back to flagging the
+  moment an auto-clicker with its own "click jitter" (a raw fractional `turn()` on each click) was turned on — the
+  jitter injected off-grid rotations into the same aim stream. *Every* site that nudges the view (click jitter, aura,
+  clutch, scaffold, recoil) must route through the same whole-count snap, or feed one shared applier that does. Corollary
+  for testing: isolate modules — a clean module can be re-flagged by a dirty one that shares the rotation.
 
 ---
 

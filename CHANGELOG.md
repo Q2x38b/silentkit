@@ -2,6 +2,13 @@
 
 Notable changes to the SilentKit skills. Newest first.
 
+## 2026-10-24 (later)
+
+More live-test lessons, focused on beating a strict aim-analysis check.
+
+### silentkit-modules
+- **§2 Mouse-GCD rule** — corrected the earlier "camera path needs no grid snap" guidance: a camera aim-assist whose rotations reach the server **must** emit whole mouse counts too (convert to counts, carry the remainder, truncate, apply `count·gcd`). Done via the mouse-input path it renders smoothly and is the single biggest fix for the aim-GCD/analysis check. Added: vary turn speed on the *tick* timescale (per-frame noise averages out → still reads constant/linear); one off-grid contributor (e.g. an auto-clicker's click-jitter doing a raw fractional turn) re-flags an otherwise-clean aim — route every view-nudging site through the same snap, and isolate modules when testing.
+
 ## 2026-10-24
 
 Lessons distilled from live anticheat testing folded into the three skills.
