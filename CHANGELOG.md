@@ -2,6 +2,13 @@
 
 Notable changes to the SilentKit skills. Newest first.
 
+## 2026-10-25 (4)
+
+### silentkit-interface
+- Reframed as design guidance too: design a distinctive interface in a fresh project, or improve an existing click GUI in place — and a hard "strictly visual, behavior goes to silentkit-modules" scope line.
+- New **§1a Shaders, blur & graphics state**: SDF rounded rects/outlines, the frosted-glass blur pipeline (capture → Kawase/dual-filter → sample, with a solid-fill fallback), soft shadows/glow, religious render-state save/restore + prefer the engine's pipeline system, scissor clipping, pixel snapping/DPI, optional post effects.
+- §4 HUD: auto-align to the screen side it's dragged into (no toggle), and the connected-rows arraylist rounding done right.
+
 ## 2026-10-25 (3)
 
 ### silentkit-runtime

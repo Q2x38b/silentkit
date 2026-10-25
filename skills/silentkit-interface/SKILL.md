@@ -1,16 +1,30 @@
 ---
 name: silentkit-interface
 description: >-
-  Engineering reference for the interface layer of a ghost client: an in-game "click GUI" (floating panels,
-  navigator, module list, settings rendering), the HUD/overlay system, a custom 2D render abstraction and font
-  pipeline, theming and animation, keybind UX, and an optional web/remote control surface. Use when building or
-  extending the client menu, HUD, or render stack. Brand-neutral and framework-agnostic.
+  Engineering reference AND design guidance for the interface layer of a ghost client: an in-game "click GUI" (floating
+  panels, navigator, module list, settings rendering), the HUD/overlay system, a custom 2D render abstraction, the
+  shader/blur/graphics pipeline, fonts, theming, animation, specific HUD elements, keybind UX, and an optional
+  web/remote surface. Use when building a new client menu/HUD (design a distinctive look you think is best) or improving
+  an existing click GUI in place. Strictly visual — presentation only; behavior belongs in silentkit-modules.
+  Brand-neutral and framework-agnostic.
 ---
 
 # SilentKit · Interface
 
 The menu, HUD, and render layer of a ghost client. Brand-neutral: patterns and composition, not any one project's
 code. Keep this separate from gameplay logic (`silentkit-modules`) and loading (`silentkit-runtime`).
+
+**On taste — design, don't just assemble.** This skill is the *toolbox and the patterns*, not a fixed look. In a fresh
+project, **design a distinctive interface you think is genuinely good** — pick a point of view (a color story, a type
+scale, a motion feel) and make it cohesive, not a generic grey menu. In an existing codebase that already has a click
+GUI, **improve it in place** — refine spacing, rounding, motion, hierarchy and consistency rather than ripping it out;
+match what's there and raise its quality. Either way, aim for something that reads as modern and intentional.
+
+**Scope is strictly visual.** Everything here is *presentation*: pixels, layout, type, color, motion, sound, and the
+surfaces the user touches. The moment a feature becomes *behavior* — what a module does, when it fires, how it talks to
+the server — it belongs in `silentkit-modules`, not here. (A HUD element that *draws* combat state is interface; the
+combat state itself is a module. A settings row is interface; what the setting changes is a module.) If you find
+behavior creeping into this skill, move it to `silentkit-modules`.
 
 ---
 
@@ -52,6 +66,39 @@ z-fight; callers draw the hidden (through-wall) pass faded. This one pair backs 
 Keep colors as ARGB ints with a `withAlpha` helper; never hardcode engine color objects. One adapter per engine
 version means a UI change ships once, not N times. Where the engine exposes a pipeline/render-type system, back
 `Render2D` with a few custom pipelines (rounded-rect, blur, line) rather than per-call GL state.
+
+---
+
+## 1a. Shaders, blur & graphics state
+
+The look lives in a handful of small shaders/pipelines; the stability lives in disciplined render state.
+
+- **Rounded rects & outlines as SDFs.** Draw a quad and compute coverage in the fragment shader from the signed
+  distance to a rounded box (`length(max(abs(p)-halfInner,0)) - radius`), antialiasing with one `smoothstep` across a
+  ~1px screen-space band. One pipeline draws every panel, row, chip, toggle and progress bar — crisp at any radius/
+  scale, no geometry tessellation, no stair-stepped corners. Per-corner radii (a `vec4`) cover connected lists and tabs.
+- **Frosted-glass blur (the signature move).** Behind a translucent panel, sample a **blurred copy of what's behind
+  it**, not a flat fill. Pipeline: capture the current framebuffer (or the menu backdrop) into an offscreen texture,
+  run a cheap separable blur into it — a **two-pass Kawase/dual-filter** (down-sample → a few ping-pong passes → up-
+  sample) is far cheaper than a wide Gaussian at the same softness — then in the panel shader sample that texture at the
+  fragment's screen UV, tint, and composite. Recreate the blur targets on framebuffer resize; **until the blur texture
+  exists (first frame, or capture disabled), fall back to a solid translucent fill** so nothing flashes. Expose a blur
+  **strength/radius** on the Style page.
+- **Soft shadows & glow.** A drop shadow is the rounded-rect SDF sampled with an expanded radius and a blur falloff
+  (or a pre-blurred nine-slice); a focus glow is the same in an accent color. Keep them cheap — one quad, fragment-
+  side falloff — and let alpha scale with the subtree's fade.
+- **Save and restore engine render state — religiously.** You're drawing inside the engine's frame, so leave blend
+  mode, depth test/mask, cull, scissor and the bound shader exactly as you found them. Prefer the engine's **pipeline/
+  render-type system** (set a pipeline, let it manage state) over raw global GL calls; a stray `glEnable` that you don't
+  reset corrupts the engine's own rendering a few draws later and is miserable to debug. Batch where you can — one
+  pipeline, one vertex buffer per shape kind per pass — rather than a GL call per rect.
+- **Scissor / clip for anything scrollable.** Push a scissor rect around a scrolling list or a panel body so rows clip
+  cleanly at the edges (and round the clip to whole physical pixels so the edge doesn't shimmer); pop it after.
+- **Pixel snapping & DPI.** Snap panel/row/bar edges to whole **physical** pixels (`round(x·guiScale)/guiScale`) so
+  1px strokes and rounded corners stay sharp on HiDPI/Retina; a sub-pixel-wide line reads as a grey fringe. Do the snap
+  at draw time, not in layout, so animation stays smooth.
+- **Optional post effects** — a menu-open backdrop dim/vignette, a subtle scanline/noise for a theme — are one
+  full-screen pass each; keep them behind a toggle and respect reduced-motion.
 
 ---
 
@@ -119,6 +166,18 @@ toggle so dense panels stay readable.
   effect icons) so your HUD and the engine's don't double up.
 - **Recording mode** — hide the client's own visuals for clean screen capture (HUD and/or world overlays), toggleable;
   pair with a name-protect / streamer mode that swaps your username out of all drawn text.
+- **Auto-align to the screen side, don't make the user toggle it.** A text/list element should read right- or
+  left-aligned based on **which half of the screen its on-screen center sits in** (`elementLeftX + scaledWidth/2 >
+  screenW/2`), recomputed each frame — so dragging it across the screen in the editor flips its alignment for free,
+  with no "align" setting to set. The same idea drives which side an accent bar / health bar sits on.
+- **The "arraylist" (active-module list), done right.** Rows sorted by width (or alphabetical), name in bold + a dim
+  suffix (mode/value/keybind), each row a rounded backdrop. The detail that makes it look clean at tight spacing:
+  **connected rows** — round only the *outer* corners of the whole stack (top of the first row, bottom of the last)
+  and square the shared inner edges, with the accent bar running the straight edge — instead of per-row pills whose
+  different widths leave a ragged, mismatched-corner stack. Slide rows in/out on toggle through the one `Smooth`.
+
+> Behavior note: *what* populates these elements (the combat state, the module list, the packet counters) is a
+> `silentkit-modules` concern; this skill is only how they're drawn and arranged.
 
 ---
 
