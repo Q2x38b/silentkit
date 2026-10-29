@@ -463,6 +463,29 @@ anticheat-notes and settings.
   speed, airborne-with-no-gravity, inhuman instant head-turns, near-zero turn-speed variance. Decay the score so a flag
   means a sustained pattern, and keep thresholds conservative for accuracy. A clean way to reuse everything you learned
   building bypasses, pointed the other direction.
+- **Break-automation (an auto-miner/nuker that holds up).** Automate block-breaking by steering the REAL view at the
+  target and holding the attack key — let the engine break what a player looking there would (legit by construction;
+  send no break packets of your own). Rules, hard-won against a 4-AC test:
+  1. **Drive the camera PER FRAME, not per tick.** The game breaks whatever the *render-interpolated* crosshair hits
+     (recomputed each frame) while the server only sees the *per-tick* rotation — a per-tick jump desyncs them →
+     "invalid break (X, looking at Y)" + abort/start double block-actions. Move it as whole mouse-counts through the
+     shared applier (§2).
+  2. **Commit to one block** until it's gone. A vanilla client never swaps the block it's mining mid-break — switching
+     sends ABORT(old)+START(new) in one tick (a reconstruction AC flags it). *Instant-break* blocks are the exception
+     (nothing is mid-break, switching is free) — that's what lets a fast rake stay legit.
+  3. **Gate the break on a "not flicking" check** — only hold attack while the per-tick rotation is small (render ≈
+     server), so a smooth continuous sweep breaks freely but a big flick waits a tick. Hold the key through the brief
+     gaps so it reads as a continuous hold, not a per-block click.
+  4. **Resolve occluders** — raytrace to the target; if a block is in the way, break THAT first instead of staring at
+     the one behind it.
+  5. **Give up on blocks that won't break** — a time budget + a re-commit counter blacklist region-protected blocks,
+     else you grind a server-replaced block forever.
+  6. **Movement is where it really flags.** Sprint only on a clean straight traverse — never while breaking/turning
+     (sprint-while-mining desyncs the server's movement simulation → physics/Simulation/sprint flags); single clean
+     ground-hops only (a held multi-tick jump + sprint spikes the physics check); don't walk into an unbroken *hard*
+     block (an instant-break block ahead is fine, it's gone before you arrive); avoid ladders. A WIDE-but-SLOW rake
+     sweep (large amplitude, slow phase) keeps per-tick rotation low — it looks like a human swinging for BPS yet never
+     crosses the flick threshold.
 
 ---
 
@@ -489,6 +512,15 @@ These send no packets, so they never flag — but the *rendering* approach matte
     *exact* modelview (camera × view-bob × hurt-shake) and projection (dynamic FOV) the level drew with this frame, so
     projected overlays line up with the world. Wrap the World-mode submit in a try/catch that disables the module on
     error, so a render exception can't take down the frame.
+- **Block / ore ESP ("x-ray", done right).** The classic x-ray — cancel the chunk-render of every non-target block —
+  needs chunk-render hooks at class *load* time and **breaks under an optimized-renderer mod** (it replaces the vanilla
+  chunk pipeline), and can't be added from an attach-time inject (those classes are already loaded). Do it as
+  world-space ESP instead: scan loaded chunk *sections* a few per tick (skip any section that can't contain a target via
+  its palette), collect matched blocks from the same block-picker the rest of the client uses, and draw through-wall
+  boxes/tracers in the level pass (the line infra above). A **cave mode** — only blocks touching a non-opaque neighbour
+  (exposed ores) — cuts the clutter. Works with optimized renderers, works injected, reuses the ESP code. (Tracer
+  detail: draw the occluded segment at the line's *own* colour, not a terrain-blended faint alpha, or its colour shifts
+  where it passes behind a block.)
 - **Chams** — draw target entities *through walls* (depth-test disabled) in their skin or flat colours (one colour when
   visible, another behind walls). Entities drawn by chams must be **exempted from render culling** (frustum, occlusion
   raytrace) or they vanish when enough blocks hide them.
