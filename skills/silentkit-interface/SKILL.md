@@ -166,6 +166,17 @@ toggle so dense panels stay readable.
   effect icons) so your HUD and the engine's don't double up.
 - **Recording mode** — hide the client's own visuals for clean screen capture (HUD and/or world overlays), toggleable;
   pair with a name-protect / streamer mode that swaps your username out of all drawn text.
+- **Mining-stat HUD tip:** distinguish session blocks, rolling BPS, average/peak windows, blocks/hour, runtime and
+  inventory space visually. Label currency rates as **net money/hour** or **net tokens/hour** when their source is a
+  balance delta. Show a warmup/unavailable state instead of an unstable early rate or a fake zero after a data gap;
+  use an estimate/source label when counts come from locally predicted breaks. Parsing, baselines and calculation
+  remain in the behavior layer; render an immutable snapshot rather than collecting scoreboard data in draw calls.
+- **Staff-list tip:** show observed status, evidence strength, distance and **time observed** separately. A loaded
+  player, unlisted profile, team-only match and recent departure should not all look like confirmed online staff.
+  Keep uncertain labels visible even in compact mode; expiry/debounce belong to the shared detector backend.
+- **Diagnostic-status tip:** display startup, ready, stopped, fallback and unavailable as distinct states. A retained
+  sprint latch with its key released is normal, and a client Self-Flag heuristic is different from a named server
+  check. UI wording should preserve those distinctions rather than promising “safe” or treating timeout as success.
 - **Auto-align to the screen side, don't make the user toggle it.** A text/list element should read right- or
   left-aligned based on **which half of the screen its on-screen center sits in** (`elementLeftX + scaledWidth/2 >
   screenW/2`), recomputed each frame — so dragging it across the screen in the editor flips its alignment for free,

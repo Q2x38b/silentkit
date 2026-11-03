@@ -33,6 +33,16 @@ Each `skills/<name>/` directory is a self-contained skill (a `SKILL.md` with YAM
 `references/`). Drop a directory into your agent's skills folder, or read the `SKILL.md` directly as a design
 reference. Nothing here is tied to a specific project, brand, or codebase — API names are illustrative.
 
+The guides also link focused rules of thumb for [flight mining](skills/silentkit-modules/references/flight-mining.md),
+[automation state and merchant menus](skills/silentkit-modules/references/automation-state.md),
+[aim/click troubleshooting](skills/silentkit-modules/references/aim-and-click-validation.md),
+[packet lifecycle](skills/silentkit-modules/references/packet-lifecycle.md),
+[staff evidence and mining statistics](skills/silentkit-modules/references/staff-and-statistics.md), and
+[attach/reload failure handling](skills/silentkit-runtime/references/attach-lifecycle.md).
+Read these when the task calls for them; they expand the existing toolkit. Source review, deterministic probes,
+bytecode verification and live server observations are different evidence, and numerical examples are tuning aids
+rather than universal bypass guarantees.
+
 ## Scope & intent
 
 These are **engineering references** for the architecture of a ghost client — the patterns, the math, the

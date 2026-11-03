@@ -1,6 +1,6 @@
 {
  "$schema": "silentkit.modules.v1",
- "about": "Brand-neutral catalogue of every module and core technique for a ghost client. Query this instead of re-reading the SKILL prose. Fields per module: name, category (combat/movement/world/player/render/hud/utility), summary, technique (how it works), hook (where it attaches, generically), anticheat_notes (why it reads as legitimate / what it avoids; 'cosmetic/client-side' = sends no packets, unflaggable), settings (notable tunables), and risk (anticheat visibility low/med/none). 'techniques' holds the shared engines (including movement_physics, targeting and the packet_engine); 'threat_model' maps the server anticheat detectors (Grim/NCP/Vulcan/Verus/Intave/Matrix) to the counter each technique relies on; 'patterns' holds reference-analysis patterns worth implementing.",
+ "about": "Brand-neutral catalogue of module and technique patterns for a ghost client. Fields per module include name, category, summary, technique, hook, anticheat_notes, settings and risk. Risk labels are engineering heuristics, not guarantees of server acceptance. Optional reference paths are relative to this catalogue's directory. Techniques and troubleshooting references are reusable guidance; they do not assert implementation status in a consuming client. Distinguish source review, deterministic probes, bytecode verification and live observations.",
  "techniques": {
   "humanization": {
    "primitives": [
@@ -21,7 +21,7 @@
      "if a step rounds to 0 but target >=1 count away, take sign(delta)*gcd so it never stalls",
      "carry the sub-count remainder across ticks (a real mouse accumulates)",
      "advance eased aim on real dt (sub-tick); snap only the value that leaves on a packet",
-     "snap the SERVER rotation only; snapping a per-frame camera step reads as a visible stair-step"
+     "Emit every camera and server-path contributor through a shared whole-mouse-count applier with carried remainder; avoid a second quantizer or independent fractional click jitter."
     ]
    },
    "eased_rotator": [
@@ -33,9 +33,10 @@
     "a hair of positional jitter while turning: +jitter(0.12) yaw / jitter(0.08) pitch above 1.5deg of remaining delta",
     "overshoot min(|d|*0.12,6) over 25deg turns, decays x0.55/tick (zeroed under 0.4), ~500ms cooldown",
     "flick guard hard +-70deg/tick ceiling",
-    "GCD snap on the server path only (snap step to grid; if it rounds to 0 but |delta|>=gcd take sign(delta)*gcd so it never stalls)",
+    "Whole-count emission on camera and server paths; apply final combined speed/acceleration and disabled-axis constraints after feed-forward and noise.",
     "reset() on disengage (active=false, overshoot/drift/ticks cleared) so the next engagement eases in fresh instead of continuing mid-swing; the aim CONTROLLER additionally resets reaction delay + ease-in + overshoot on a target switch"
-   ]
+   ],
+   "validation_reference": "aim-and-click-validation.md"
   },
   "rotation_ownership": {
    "problem": "last-writer-wins -> two placement modules flicker the rotation; one module's release cancels another's in-progress hold",
@@ -50,7 +51,8 @@
     "Proper: re-pick WASD against the server yaw, snap to nearest of 8 dirs, sprint only when forward of it",
     "Slow: keep real keys, kill sprint past 45deg off-facing",
     "None: leave movement (for throws/deflects)"
-   ]
+   ],
+   "action_result": "Return applied/refused explicitly; delayed uses recheck current ownership and held-item prerequisites before acting. Camera, movement, attack, use and hotbar controls need distinct ownership boundaries."
   },
   "prediction_sim": {
    "recipe": "AABB from start pos+vel; loop ticks applying real accel/drag; per-axis collision sweep (Shapes.collide Y then X then Z vs swept block shapes); read-only; cap the tick budget; act on where things WILL be \u2014 the resulting packet is legal so the server can't object",
@@ -77,12 +79,13 @@
     "target-motion lead"
    ],
    "upgrades": [
-    "target-rate feed-forward ffRate=ffRate*0.6+(dWant/dt)*0.4, add clamp(ffRate*dt,+-6) so a strafing target is tracked not lagged (PD+I adds a leak-decayed integral + derivative; feed-forward is the highest-impact piece)",
+    "Target-rate feed-forward with alpha=1-exp(-dt/tau); reset target samples on identity changes/teleports/gaps, keep camera momentum separate, and bound the final combined output instead of only the base correction.",
     "velocity/distance leading leadTicks=clamp(dist/6,1,3)",
     "closest-point-on-hitbox + eye-aligned Y",
     "adaptive speed scale=clamp(|dYaw|/20,0.35,1.5), softer when on-target",
     "per-target randomized gains x0.8-1.2 + per-tick lognormal speed with point-blank slowdown"
-   ]
+   ],
+   "reference": "aim-and-click-validation.md"
   },
   "timing": {
    "clicks": [
@@ -96,14 +99,17 @@
     "styles: Jitter/Butterfly/Drag all averaging to CPS",
     "Click Assist amplifies real clicks only",
     "range-aware gating",
-    "stand down while an aura drives the attack"
+    "stand down while an aura drives the attack",
+    "Every primary/assist/second click rechecks current input, focus, menu, target, charge and ownership gates; cancel stale work on disable or session replacement.",
+    "Use explicit monotonic-clock units, preserve configured CPS meaning and avoid catch-up bursts after stalls; double-click rhythms are optional, not universal requirements."
    ],
    "packets": [
-    "one owner-aware PacketDelay service, rules claimed with a module token; PacketConflicts auto-disables a contending module",
-    "max held-age cap (Max Desync) so movement never desyncs far enough to flag",
-    "allowlist: delay only position packets; actions/container/keep-alive/chat/teleport-confirm go live; flush held ones first when a live packet follows",
-    "flush+pause on own attack, on taking knockback, on any server correction/teleport"
-   ]
+    "Owner-aware rule slots with connection/world generations and stale-producer cancellation.",
+    "Bound held age/count independently of optional Auto Send; queue budgets do not guarantee server acceptance.",
+    "Classify movement plus version-specific tick-end batches; define ordered pass, flush-before-pass and effective control handling even behind a held incoming head.",
+    "Correction/disconnect/configuration/respawn barriers need explicit ordered drain or semantic discard; never replay on a replacement connection/world."
+   ],
+   "reference": "packet-lifecycle.md"
   },
   "movement_physics": {
    "about": "Every movement module rides vanilla physics; reproduce the integration exactly (and per engine version) because a prediction anticheat runs the same replay. Per-tick order: apply input accel -> move with per-axis collision sweep (Y then X then Z, same as the prediction sims) -> apply drag/friction for next tick -> gravity.",
@@ -121,10 +127,12 @@
     "strafe_air_accel": "rewrite air input toward the move vector each tick, respecting the 0.02 air-accel cap; never add velocity the input couldn't",
     "longjump": "slipperiness-aware launch, but horizontal still decays by the block friction each tick and the impulse must be one a jump could legally produce",
     "noslow": "a modifyInput redirect that skips ONLY the 0.2 use-item input scale, leaving sneak and all other modifiers. HIGH RISK on prediction ACs: Grim models the 0.2 slowdown, so full-speed-while-using diverges from its replay; survives only where the AC doesn't model use-item slowdown (older NCP). The textbook 'legit-looking but physically inconsistent' case",
-    "keepsprint_omnisprint": "re-assert isSprinting the tick an attack/KB clears it (setSprinting(true) when vanilla would still allow: forward held, food>6, not using item, not mid-crit). KeepSprint = genuine vanilla sprint, safe. OmniSprint (sprinting sideways/backward) is non-vanilla and trips sprint-direction checks",
-    "velocity": "scale deltaMovement after the server applies KB, with precision jitter so the result is never a clean fraction of the push (see modules.Velocity)"
+    "keepsprint_omnisprint": "Distinguish entry from continuation. Authorized modern sprint flight can retain forward+strafe and altitude input after a brief vanilla sprint press. Do not repeatedly force isSprinting after cancellation; coordinate owners and release for unsafe/non-forward input. A vanilla field alone does not establish server acceptance.",
+    "velocity": "scale deltaMovement after the server applies KB, with precision jitter so the result is never a clean fraction of the push (see modules.Velocity)",
+    "authorized_flight": "Read server flying speed and actual version physics; checked 26.2/26.3 sprint flight doubles horizontal input acceleration. Predict diagonal boosted input, full-body braking and combined vertical clearance. Prevent automated ascent pulses from accumulating the manual flight-double-tap timer while the bot owns active authorized flight."
    },
-   "universal_rule": "a prediction AC accepts any motion SOME legal input could produce and flags motion no input could, so survive it only by changing the inputs/attributes the AC also reads (sprint flag, step attribute, jump, input vector), never by writing an output position those inputs don't justify. Heuristic ACs flag raw magnitudes, so there you tune under the threshold"
+   "universal_rule": "a prediction AC accepts any motion SOME legal input could produce and flags motion no input could, so survive it only by changing the inputs/attributes the AC also reads (sprint flag, step attribute, jump, input vector), never by writing an output position those inputs don't justify. Heuristic ACs flag raw magnitudes, so there you tune under the threshold",
+   "flight_reference": "flight-mining.md"
   },
   "targeting": {
    "about": "Combat modules share one TargetSetting so target policy is set once and obeyed everywhere (who to aim at, who to never touch).",
@@ -136,19 +144,20 @@
   },
   "packet_engine": {
    "about": "One service holds packets on the client's own connection and releases them in order; backs BackTrack, FakeLag, Blink, KnockbackDelay and Velocity-delay. Incoming decided on the Netty thread, released on the main thread through vanilla's own dispatch; outgoing queued from any thread and re-sent from the main thread.",
-   "queues": "three lock-free concurrent queues: 'incoming' (everything KnockbackDelay holds + whatever arrived behind it, one global line), 'entityHeld' (one target's movement, for BackTrack), 'outgoing'. Each record keeps {packet, releaseAt, queuedAt} (incoming also the PacketListener; outgoing the callback/flush flags) so order and timing survive the wait",
-   "rules": "a rule is holdUntil(packet, now) -> 0 = let through, else the release timestamp. Two shared slots (outgoing, incoming/knockback) plus the per-entity BackTrack slot. Each slot is OWNER-AWARE: setRule(ownerModule, rule) records the owner; clearRule(owner) is a no-op unless that owner still holds it, so a disabling module can't rip out another's rule",
+   "queues": "Concurrent ordered queues carry packet, monotonic sequence, originating connection/session/world generation, release deadline and callback/flush metadata. A clear must invalidate in-flight stale producers, not only empty existing entries.",
+   "rules": "Owner-aware slots distinguish hold, ordered pass, flush-before-pass and semantically safe immediate controls. Returning zero does not exempt a packet from an existing head-of-line hold.",
    "conflict_resolution": "PacketConflicts: before claiming a slot, if another ENABLED module holds it, switch that one off with a toast ('FakeLag turned off Blink - both use outgoing packet timing') instead of silently overwriting and leaving the loser enabled-but-dead",
-   "reentrancy": "releasing a held packet must not recurse into the rule. Outgoing uses a ThreadLocal RESENDING set true while re-sending (the hook short-circuits for its own resends, cleared in finally). Incoming replays through an accessor onto vanilla's packet handler, guarded so a packet whose connection moved on (listener swapped, config phase, disconnected, !isAcceptingMessages) is dropped not force-fed",
-   "allowlist": "delay ONLY movement/position packets; the rule returns 0 for everything else. Block/use carry a client sequence the server acks+predicts against (holding desyncs blocks/inventory); container clicks, keep-alives, chat, teleport-confirms go live (holding = timeout/brick). Protocol-critical inbound (disconnect, start-configuration) must never wait: force everything ahead of them to release now and queue them right behind. When a live packet follows held ones, flush the held ones first so order is preserved",
-   "ordering": "releasing a globally-held (ALL) packet first releases any entityHeld packets queued before it, so the two incoming lines merge back into real arrival order and BackTrack's frozen target doesn't teleport relative to the world on release",
-   "flush_pause": "instantly drain + stand down on your own attack packet (so a held position never costs the hit), on taking knockback (your real position jumped), and on any server position-correction/teleport (tracked as lastPositionCorrection on the network thread when a ClientboundPlayerPosition arrives). Modules also cap held-packet age (Max Desync) so movement never desyncs far enough for the prediction/timer detectors",
-   "hazards_avoided": "holding keep-alive -> kick; holding block/use -> inventory/block desync + rejected actions; holding past a setback -> acting on a stale position (setback detector); speeding the clock instead of delaying -> timer flag; touching the integrated server's connection -> guard every entry on 'is this the client's own play-state game connection'"
+   "reentrancy": "Use a one-use exact receiver+packet replay token and restore previous thread-local state in finally; a broad boolean can exempt unrelated nested sends. Incoming replay uses the proper dispatch thread and validates connection/world generation as well as listener acceptance.",
+   "allowlist": "Ordinary movement delay keeps required version-specific tick-end markers with movement; otherwise a live marker may flush the backlog each tick. Actions, container/prediction state and control packets need explicit ordering and effective keepalive/teleport/configuration handling.",
+   "ordering": "Merge dependencies and capture release cutoffs by monotonic arrival sequence, not wall-clock milliseconds. Respawn may replace a world while retaining a listener; drain old-state entries before its barrier or discard them according to semantics.",
+   "flush_pause": "Apply explicit correction/attack/hurt lifecycle policy; bind replay to its originating connection. Count attempted, queued, dispatched and dropped events separately, with documented callback completion on discard.",
+   "hazards_avoided": "holding keep-alive -> kick; holding block/use -> inventory/block desync + rejected actions; holding past a setback -> acting on a stale position (setback detector); speeding the clock instead of delaying -> timer flag; touching the integrated server's connection -> guard every entry on 'is this the client's own play-state game connection'",
+   "reference": "packet-lifecycle.md"
   },
   "placement": {
-   "shared_service": "fill a target by clicking a sturdy neighbour's exposed face the way a right-click would, with reach + sturdy-full-face validation centralised; report the hit point back only on a successful place (a failed reach never turns the head); blocksNeeded() -> 0/1/2/-1; support() tries DOWN,NORTH,SOUTH,EAST,WEST and requires !canBeReplaced && isFaceSturdy (so a slab/fence/torch/carpet/air/water/fire is rejected before a packet is sent \u2014 the 'placing into air / on fire' bug); placeAt() fills the target or, failing that, the horizontal neighbour that has support (a diagonal step first)",
-   "hit_vec_jitter": "the clicked point is the neighbour-face centre offset by jitter(0.18) clamped to +-0.4 on the two in-plane axes only (never along the face normal), kept well inside the face so the block still places and stays in reach \u2014 so placements don't all land on the exact block-face centre, a dead giveaway. hitFor()/rotationTo() (used by Aim View and the planner's rotCost) use the un-jittered centre",
-   "shared_planner": "PlacementSearch generalises the greedy placer (now IMPLEMENTED, not just aspirational): frontier(targets) = the subset fillable this tick (replaceable AND BlockPlacer.hitFor != null), sorted by rotCost = |wrapDegrees(yaw-lookYaw)| + |pitch-lookPitch| so the caller places the cheapest-aim-movement ones first and the frontier re-expands next tick as fresh blocks create new supports. planTo(goal, maxSteps) = bounded best-first (A*) over the 6-neighbourhood to bridge to an unreachable goal: seed the open set with every position within maxSteps of the goal that's reachable-placeable now, treat each expanded cell as solid-once-placed, priority = path.size() + sqrt(distSqr(goal)) (cost=steps, heuristic=block distance, admissible), prune cells farther than maxSteps*maxSteps*4 or beyond 6-block eye reach; returns the placement order ending at goal, or empty. Surround consumes frontier(); Scaffold/Clutch/AutoAnchor can share it",
+   "shared_service": "Carry one immutable candidate {target,support,face,hitPoint} through planning and execution. Validate replaceability, actual reach, occlusion, held item, ownership and alignment policy before acting. consumesAction may mean opening an interactive support, not placing a block; distinguish attempted/predicted/confirmed placement.",
+   "hit_vec_jitter": "If varying a face point, sample once inside its real geometry and reuse the same point for planning, alignment, raytrace and action. Do not pre-aim at a center then click a freshly jittered point.",
+   "shared_planner": "A shared frontier may rank currently reachable valid candidates by rotation cost. A bounded multistep planner must model hypothetical supports and collision/visibility dependencies rather than assume every expanded cell is already solid or use a hard-coded reach. Revalidate each step against the live world.",
    "scaffold_specifics": [
     "half-block-aware placeY: feet at .5 on a slab -> build from floor(y), else floor(y)-1",
     "nearest-first ring of feet spots (next-tick landing, diagonal corner-fills, current column)",
@@ -156,11 +165,12 @@
     "Legit predictive edge-sneak on a randomized human hold; GodBridge/TellyBridge place under feet while walking/airborne, never above start-Y+Y-increase"
    ],
    "clutch_specifics": [
-    "scan from under the feet downward through reach, 3x3 ring + momentum/landing column nearest-first",
-    "look-down is cosmetic (block placed off the hit result, not the rotation)",
-    "released() guard (landed / no longer dangerous / timed out) so the view/silent rotation never sticks mid-air",
-    "restore slot + view afterward"
-   ]
+    "Scan reachable visible supports around the predicted landing path.",
+    "Gate rotate-first action on the selected actual/sent rotation; an aim callback after use cannot validate that earlier action.",
+    "Measure alignment timeout from the current attempt, not an uninitialized or previous-success timestamp that makes the first attempt an immediate emergency.",
+    "Use owner/session slot restoration and bounded idempotent release after landing, cancellation or loss of prerequisites."
+   ],
+   "reference": "automation-state.md"
   },
   "damage_model": {
    "explosion": "normalise distance by radius*2 (power6 crystal -> 12); impact=(1-d)*exposure; raw=((imp^2+imp)/2*7*q+1); reduce by armour+toughness, blast/generic protection (blast counts double), Resistance",
@@ -169,12 +179,54 @@
   },
   "item_score": "shared comparator driven off the item's own attribute modifiers (robust across versions): armour = armour pts + toughness/2 (+protection); weapon = attack damage + per-enchant bonuses; tool = dig speed + efficiency/fortune. Feeds auto-armor best-per-slot + 2-set swap, auto-weapon, and a better-than-equipped loot gate",
   "anti_bot": "accumulating per-entity behaviour score summed from independent weak signals since first seen: sustained air-hover (>1s ~conclusive +10), not in tab list (+4), NPC/red name (+5); threshold ~8 so no single signal false-positives and a still-standing player never trips; expose ignoreForCombat / ignoreForVisuals",
-  "esp_render": "true 3D world-space box ESP is now IMPLEMENTED (ESP 'World' mode) alongside the screen-projected modes. World mode (WorldMesh + WorldRenderTypes) builds camera-RELATIVE line + fill geometry on the CPU and submits it inside the level render pass via collector.submitCustomGeometry, so it depth-tests and occludes against terrain like real world geometry (no bobbing/FOV drift, no behind-camera flicker). Mechanics: (1) each box = 12 edge polylines + optional 6 filled faces at ~14% of the edge alpha; (2) lines are expanded to camera-facing ribbon QUADS on the CPU: side dir = normalize(tangent x eyeRay), half-width in world units = (halfPx+1px)*worldPerPx*depth so the on-screen width is depth-independent, with a 1px anti-aliased feather carried in UV0.x (signed px from the line centre) and the core half-width in a per-vertex LineWidth attribute; (3) near-plane clip at depth 0.1 along the forward vector: an edge with one endpoint behind the camera is TRIMMED to the near plane (lerp pos+colour), not dropped \u2014 this is the fix for the screen-projection flicker; (4) a VISIBLE/HIDDEN render-type pair partitions the screen by depth (reversed-Z: visible=GEQUAL, hidden=LESS), the hidden through-wall pass drawn first at ~0.28 alpha; both share a small depth bias so faces lying on a block don't z-fight. worldPerPx is derived from 2/(framebufferHeight*projMatrix.m11). The 2D fallback was also fixed: it now keeps only the in-front corners and shrinks the box to the visible part (min/max of non-behind corners) instead of returning the moment one corner crosses behind the camera. A shared world projector still captures the exact modelview (camera*bob*shake) and projection (dynamic FOV) for the screen-projected modes; chams draw targets through walls (depth off) and must be exempt from culling; a framebuffer edge-detect pass gives a clean silhouette outline"
+  "esp_render": "true 3D world-space box ESP is now IMPLEMENTED (ESP 'World' mode) alongside the screen-projected modes. World mode (WorldMesh + WorldRenderTypes) builds camera-RELATIVE line + fill geometry on the CPU and submits it inside the level render pass via collector.submitCustomGeometry, so it depth-tests and occludes against terrain like real world geometry (no bobbing/FOV drift, no behind-camera flicker). Mechanics: (1) each box = 12 edge polylines + optional 6 filled faces at ~14% of the edge alpha; (2) lines are expanded to camera-facing ribbon QUADS on the CPU: side dir = normalize(tangent x eyeRay), half-width in world units = (halfPx+1px)*worldPerPx*depth so the on-screen width is depth-independent, with a 1px anti-aliased feather carried in UV0.x (signed px from the line centre) and the core half-width in a per-vertex LineWidth attribute; (3) near-plane clip at depth 0.1 along the forward vector: an edge with one endpoint behind the camera is TRIMMED to the near plane (lerp pos+colour), not dropped \u2014 this is the fix for the screen-projection flicker; (4) a VISIBLE/HIDDEN render-type pair partitions the screen by depth (reversed-Z: visible=GEQUAL, hidden=LESS), the hidden through-wall pass drawn first at ~0.28 alpha; both share a small depth bias so faces lying on a block don't z-fight. worldPerPx is derived from 2/(framebufferHeight*projMatrix.m11). The 2D fallback was also fixed: it now keeps only the in-front corners and shrinks the box to the visible part (min/max of non-behind corners) instead of returning the moment one corner crosses behind the camera. A shared world projector still captures the exact modelview (camera*bob*shake) and projection (dynamic FOV) for the screen-projected modes; chams draw targets through walls (depth off) and must be exempt from culling; a framebuffer edge-detect pass gives a clean silhouette outline",
+  "module_lifecycle": {
+   "reference": "automation-state.md",
+   "rules": [
+    "Transactional enable with rollback and bounded consecutive tick-error handling.",
+    "Cancel deferred clicks, chat and item sequences on disable/re-enable/session replacement.",
+    "Owner/session hotbar leases respect manual slot changes; shared option overrides use one baseline."
+   ]
+  },
+  "inventory_automation": {
+   "reference": "automation-state.md",
+   "rules": [
+    "Bind plans to screen/menu/player/world; validate source/destination/cursor per actual click.",
+    "Use merchant-state observations, bounded transfer budgets and explicit pickup/place when QUICK_MOVE is rejected.",
+    "Trash only explicitly scoped spare items; reacquire reachable water from current position after sale.",
+    "Reject focused text entry for inventory movement; keep background automation focus exceptions owner-specific."
+   ]
+  },
+  "flight_mining": {
+   "reference": "flight-mining.md",
+   "rules": [
+    "Authorized-flight entry and continuation differ: bounded sprint press, vanilla acknowledgement, retained forward latch and actual boosted collision checks.",
+    "Prevent bot ascent pulses from toggling manual double-jump flight; preserve manual behavior outside ownership.",
+    "Stable interior enclosure survey, fixture-aware work, whole-layer confirmation and collision-safe outside recovery.",
+    "Long passes, reachable forward faces and tangent-continuous handoffs reduce unnecessary stop/start transitions."
+   ]
+  },
+  "staff_evidence": {
+   "reference": "staff-and-statistics.md",
+   "rules": [
+    "Combine received profiles, loaded entities, team metadata and genuinely attributed recent chat.",
+    "Normalize rank words; handle UUID/name identity, ignore precedence, weak-evidence expiry and alert debounce.",
+    "Unlisted/team-only/departed evidence is uncertain; it must not imply universal vanish detection or automatic disconnect."
+   ]
+  },
+  "mining_statistics": {
+   "reference": "staff-and-statistics.md",
+   "rules": [
+    "Separate local break completions from attempts and server-confirmed results; deduplicate bounded callbacks.",
+    "Normalize scoreboard labels/prefix/suffix/suffix magnitudes with decimal balances and fresh post-gap baselines.",
+    "Report net rates over observed time with warmup/missing-data states; distinguish session, rolling and peak windows."
+   ]
+  }
  },
  "patterns": [
   {
    "name": "Shared A* placement planner (PlacementSearch)",
-   "summary": "The shared greedy placer generalised into one planner, now implemented. frontier(targets) returns the subset placeable this tick (replaceable + a reachable sturdy face via hitFor), ordered cheapest-rotation-first (rotCost = |yaw delta|+|pitch delta| from your current look to the click face); the caller places one or a few per tick and the frontier re-expands next tick as new blocks create supports. planTo(goal,maxSteps) is a bounded best-first/A* over the 6-neighbourhood to bridge to an unreachable goal: seed with reachable-placeable cells near the goal, treat each expanded cell as solid-once-placed, priority = steps + block-distance heuristic (admissible), prune beyond reach/budget; returns the placement order. Surround consumes frontier(); Scaffold/Clutch/AutoAnchor can share the same solver with different goal tests. Turns 'which block next' into one planner."
+   "summary": "Share immutable placement candidates and currently placeable frontiers across callers. For multistep A*, model hypothetical placed supports, actual interaction reach and visibility, and revalidate each action. A consumed interaction is not proof a block was placed; planner availability is not proof every caller enforces alignment."
   },
   {
    "name": "Opportunistic backtrack rewind",
@@ -198,7 +250,7 @@
   },
   {
    "name": "Shared control claims",
-   "summary": "One ControlClaim{owner,priority,lastRefresh} pattern reused for the rotation, each PacketDelay rule slot, and the hotbar/action lock \u2014 any resource two modules might contend for. Token-scoped release means a disabling module can never cancel another's hold."
+   "summary": "Use distinct owner/priority/session claims for rotation, movement, primary attack, secondary use, hotbar selections and packet slots. Refused claims block dependent actions; owner-checked release and session validation prevent stale cancellation/restoration. Shared graphics overrides use one baseline and preserve user edits."
   }
  ],
  "threat_model": {
@@ -301,7 +353,8 @@
     "Drift Speed",
     "Shake",
     "Reacquire Delay"
-   ]
+   ],
+   "reference": "aim-and-click-validation.md"
   },
   {
    "name": "SilentAura",
@@ -333,7 +386,7 @@
    "summary": "Automated clicking at a target CPS, plus a mace-smash triggerbot.",
    "technique": "Per-frame scheduler. Normal (random/drifting CPS), Humanized (click styles + fatigue/bursts + range-aware + misclicks), Click Assist (amplifies each real click), Triggerbot (clicks the crosshair entity when the swing charges; Mace Smash fires only on a qualifying fall-smash, with optional Stun-Slam axe-then-mace). Optional Charge Gate (Normal/Humanized): hold each scheduled click until getAttackStrengthScale(0f) >= a per-click randomized target gateTarget = 0.88 + rand*0.12 (i.e. [0.88,1.0], capped at 1.0), retrying each frame and re-rolling the target after each click \u2014 so you never click through the attack cooldown for a 0-knockback reset hit; more damage per swing and the cadence matches the weapon. Triggerbot uses the same idea: one click each time the scale reaches a random point in the Charge range.",
    "hook": "render frame (Minecraft.runTick)",
-   "anticheat_notes": "Lognormal gaps, OU CPS walk, repeat-gap rhythm, injected pauses, modelled press/hold, misclicks; stands down while an aura drives attacks; skips bot entities; Click Assist never free-runs; Charge Gate keeps hits on the cooldown grid.",
+   "anticheat_notes": "Lognormal gaps, OU CPS walk, repeat-gap rhythm, injected pauses, modelled press/hold, misclicks; stands down while an aura drives attacks; skips bot entities; Click Assist never free-runs; Charge Gate keeps hits on the cooldown grid. Revalidate/cancel every pending assist or second click at dispatch, with explicit monotonic time units; optional rhythm models do not establish a bypass.",
    "settings": [
     "Mode",
     "CPS range",
@@ -347,7 +400,8 @@
     "Mace Smash + Require Fall + Smash Only + Stun Slam",
     "Wait for Aim",
     "Jitter"
-   ]
+   ],
+   "reference": "aim-and-click-validation.md"
   },
   {
    "name": "Triggerbot",
@@ -577,9 +631,9 @@
    "category": "combat",
    "risk": "high",
    "summary": "Freezes outgoing (optionally incoming) packets; release floods them.",
-   "technique": "Installs FOREVER hold rules on PacketDelay; breadcrumbs where you really walked + a fake box at the server's last-known position. Movement-Only holds just position packets. Auto Send caps the backlog; Flush On Teleport releases on a correction.",
+   "technique": "Owner-aware bounded packet holds with explicit session/world generations and protocol control decisions. Movement Only groups movement with its tick-end markers; correction and release commands use precise sequence cutoffs.",
    "hook": "outgoing + incoming interceptors (via PacketDelay) + overlay",
-   "anticheat_notes": "Never holds keep-alive/config-ack/teleport-accept (those brick the connection); Auto Send threshold + flush-on-teleport bound desync; PacketConflicts arbitrates the slot.",
+   "anticheat_notes": "A zero-delay keepalive exemption can still stall behind an incoming hold. Test effective handling, global age/count bounds and callback completion; optional Auto Send alone is not a global bound.",
    "settings": [
     "Direction (Outgoing/Bi-directional)",
     "Type (All/Movement Only)",
@@ -587,7 +641,8 @@
     "Spawn Fake",
     "Auto Send + Threshold",
     "Flush On Teleport"
-   ]
+   ],
+   "reference": "packet-lifecycle.md"
   },
   {
    "name": "BackTrack",
@@ -611,7 +666,7 @@
    "summary": "Delays your outgoing position packets.",
    "technique": "Outgoing PacketDelay rule. Latency (always), Dynamic (lag while closing a target, dump the backlog at reach so you hit before they react), Repel (lag only while your velocity points at the target). Attack flushes immediately.",
    "hook": "outgoing move-packet interceptor + end-of-tick",
-   "anticheat_notes": "Allowlist delays only position packets (actions/container/keep-alive live); Max Desync age cap; transmission-offset jitter; flush+pause on attack/hurt/server correction.",
+   "anticheat_notes": "Group movement and required tick-end markers; actions/control packets follow explicit flush/pass policy. Bind entries to originating sessions, cap queues and validate correction barriers; budgets do not establish a bypass.",
    "settings": [
     "Mode",
     "Delay",
@@ -620,7 +675,8 @@
     "Max Desync",
     "Targets",
     "Show Delay"
-   ]
+   ],
+   "reference": "packet-lifecycle.md"
   },
   {
    "name": "AutoMace",
@@ -681,29 +737,31 @@
   {
    "name": "Sprint",
    "category": "movement",
-   "risk": "none",
-   "summary": "Hold sprint; keep momentum after a hit.",
-   "technique": "Forces sprint while moving forward with hunger to spare, re-applying it after an attack would normally break it (coordinated with AutoCrit/Air-Crit so it doesn't spoil a crit).",
+   "risk": "low",
+   "summary": "Requests sprint with movement-mode-specific ownership and continuation rules.",
+   "technique": "Ground and authorized-flight policies differ. Preserve an acknowledged flight latch through valid forward+strafe/altitude input after releasing the sprint key; respect actual cancellations and yield to a bot owning sprint.",
    "hook": "end-of-tick / input tick",
-   "anticheat_notes": "Only drives the vanilla sprint state the player could set themselves.",
+   "anticheat_notes": "Entry/continuation and acceleration must match the actual game version. Repeated direct reassertion is not inherently safe; no risk label guarantees acceptance.",
    "settings": [
     "Keep Sprint",
     "Omnidirectional (optional)"
-   ]
+   ],
+   "reference": "flight-mining.md"
   },
   {
    "name": "InvWalk",
    "category": "movement",
    "risk": "low",
    "summary": "Keep walking/jumping while an inventory screen is open.",
-   "technique": "From the input mixin while a screen has focus, read the physical movement keybinds, build a fresh Input record and set the normalized move vector.",
+   "technique": "Read rebound movement keys only for explicitly allowed container screens; reject focused chat/sign/book/search text input. Define window-focus policy independently of an active background bot.",
    "hook": "player input tick (screen open)",
    "anticheat_notes": "Each of jump/sneak/sprint individually gateable; moving-in-menu is non-vanilla.",
    "settings": [
     "Jump",
     "Sneak",
     "Sprint"
-   ]
+   ],
+   "reference": "automation-state.md"
   },
   {
    "name": "Parkour",
@@ -762,7 +820,7 @@
    "summary": "Places blocks to save a fatal/void/long fall.",
    "technique": "Fall-sim trigger (void/lethal/>Blocks, catching knockback arcs) + nearest-first downward scan of the 3x3 ring plus the momentum/landing column; places at the highest reachable support, restores slot+view. Catches you stepping off an edge, descending, or staircasing.",
    "hook": "end-of-tick + outgoing use + per-frame real-view ease",
-   "anticheat_notes": "Block placed off the hit result (not the rotation) so a slow/eased look never misses; released() guard stops the view/silent rotation sticking mid-air; highest rotation priority (OWNER_CLUTCH).",
+   "anticheat_notes": "Rotation ownership and actual/sent alignment precede rotate-first interaction. A current-attempt timer bounds waiting; a zero previous-success timestamp must not make the first attempt an emergency. Interactive-support consumption is not proof of placement.",
    "settings": [
     "On Void/Lethal/>X Blocks + Blocks",
     "Silent Aim + Aim Speed",
@@ -771,7 +829,8 @@
     "Allow Staircase",
     "Move Delay",
     "Block Selection"
-   ]
+   ],
+   "reference": "automation-state.md"
   },
   {
    "name": "AutoBucket/MLG",
@@ -867,16 +926,25 @@
    "name": "AutoMine",
    "category": "world",
    "risk": "low",
-   "summary": "Mines chosen block types via the pathfinding bot.",
-   "technique": "Resolves block IDs and drives the pathfinder's mine process; Legit Mine restricts to ores it can actually see (branch-mines between them). Self-disables when full or the quantity is reached.",
-   "hook": "pathfinder bridge (enable/tick/disable)",
-   "anticheat_notes": "Relies on the bot's real movement/mining + human-look layer; Legit avoids the X-ray tell of pathing straight to hidden ore.",
+   "summary": "Mines selected blocks with pathfinding or a controlled camera/input miner, including authorized-flight sweeps.",
+   "technique": "Held vanilla mining, committed slow-block handling or continuous instant sweeps; full-body enclosure survey, stable interior seed, fixture-aware complete-layer gate, longer routes, curved wall handoffs and explicit outside recovery. Authorized flight uses a sprint-key tap/retained latch with collision-safe final input and an ascent double-tap guard.",
+   "hook": "tick decisions + per-frame camera + final input/held-attack gates + local-player flight timer hook",
+   "anticheat_notes": "Use actual reach, server flight permission and version-specific physics. Local completions are not proof of server acceptance. Keep menus/pauses, lost flight and protected blocks explicit.",
    "settings": [
     "Blocks",
     "Quantity",
     "Legit Mine",
-    "Stop When Full"
-   ]
+    "Stop When Full",
+    "Engine",
+    "Blocks/Quantity",
+    "Fly",
+    "Sprint Fly",
+    "Fly Height",
+    "Fly Radius",
+    "Fly Pattern",
+    "Mine In Background"
+   ],
+   "reference": "flight-mining.md"
   },
   {
    "name": "BaseFinder",
@@ -922,18 +990,23 @@
    "name": "AutoFish",
    "category": "player",
    "risk": "low",
-   "summary": "Auto-fishes with multi-signal bite detection and recast.",
-   "technique": "CAST->WAIT_HOOK->FISHING machine; a bite is confirmed when N of four independent signals agree within 500ms (synced hook state, splash sound, particle burst, sharp bobber dip). Randomized reel/recast delays; rod-swap and anti-break.",
+   "summary": "Multi-signal fishing with optional merchant selling and explicitly scoped cleanup.",
+   "technique": "Bite/recast machine plus nearest reachable safe-water navigation, eased walking-to-fishing aim, capacity hysteresis, merchant/menu observation, explicit scoped fish/head transfer, sale confirmation, optional spare-armor trash and current-position water reacquisition. Bound stuck bank exits and phase retries.",
    "hook": "end-of-tick + incoming sound/particle packets + overlay",
-   "anticheat_notes": "Signal fusion avoids false reels; randomized delays; stops before the rod breaks.",
+   "anticheat_notes": "Normal inputs and real menu clicks require current scope/prerequisites; verify observed progress instead of assuming fixed sleeps mean success. No guarantee of server acceptance.",
    "settings": [
     "Reel/Recast Delay ranges",
     "Recast Ground/Caught",
     "Max Wait",
     "Auto Switch",
     "Anti Break + Min Durability",
-    "detect toggles + Signals Needed"
-   ]
+    "detect toggles + Signals Needed",
+    "Auto Sell + capacity threshold",
+    "Merchant/action selectors",
+    "Transfer budget",
+    "Optional trash scope"
+   ],
+   "reference": "automation-state.md"
   },
   {
    "name": "AutoItem",
@@ -955,7 +1028,7 @@
    "category": "player",
    "risk": "low",
    "summary": "Container QoL: sort, move-all, scroll-transfer, refill, slot locks, auto steal/deposit.",
-   "technique": "All actions are real slot clicks paced a few per tick through a queue; sorting simulates on a copy to emit a minimal click sequence; auto steal/deposit QUICK_MOVE one eligible slot per Move Delay with whitelist/blacklist; persistent slot locks honoured everywhere.",
+   "technique": "Real slot-click queue scoped to exact screen/menu/player/world; per-click source/destination/cursor revalidation and actual-click budgeting; simulations generate plans that are rechecked live. Cancel on scope change/disable and preserve slot locks.",
    "hook": "container-screen input mixins + end-of-tick queue",
    "anticheat_notes": "Real slot-click packets at a throttled rate; randomized move delay.",
    "settings": [
@@ -968,7 +1041,8 @@
     "Lock Slot",
     "Auto Steal/Deposit + filters",
     "Move/Start Delay"
-   ]
+   ],
+   "reference": "automation-state.md"
   },
   {
    "name": "ChestStealer",
@@ -1195,17 +1269,21 @@
    "name": "StaffDetector",
    "category": "world",
    "risk": "none",
-   "summary": "Watches the tab list for staff ranks / watch-listed names.",
-   "technique": "Each tick scan listed players; match rank keywords in team prefix/suffix/display name and a watch-name list; dedupe by UUID; alert (toast/sound) and optionally auto-leave.",
-   "hook": "end-of-tick",
-   "anticheat_notes": "cosmetic/client-side (reads tab-list data); the only outbound action is a normal disconnect.",
+   "summary": "Classifies passive staff evidence with confirmed and uncertain states.",
+   "technique": "Shared bounded collector combines listed/unlisted profiles, loaded entities, normalized team rank words, exact watch/ignore identities, attributed recent chat and recent departures. UUID-aware classification, confirmation/debounce/cooldowns and weak-evidence expiry; automatic disconnect only when configured and strongly confirmed.",
+   "hook": "bounded main-thread scans + source-validated profile-removal/chat observations",
+   "anticheat_notes": "Passive received evidence cannot discover a completely server-hidden player. Unlisted, spectator, invisible or team-only presence alone does not prove vanished staff.",
    "settings": [
     "Keywords",
     "Watch Names",
+    "Ignore Names",
+    "Evidence Sources",
+    "Confirmation/Cooldown",
     "Notify",
     "Sound",
-    "Auto Leave"
-   ]
+    "Auto Leave (confirmed evidence only)"
+   ],
+   "reference": "staff-and-statistics.md"
   },
   {
    "name": "Bot",
@@ -1628,17 +1706,18 @@
    "name": "StaffList",
    "category": "hud",
    "risk": "none",
-   "summary": "Online staff read from the tab list with time online.",
-   "technique": "Scans listed players, extracts a rank word from team prefix/suffix/display name via keyword match, tracks first-seen for time online; renders with optional head icons.",
+   "summary": "Shared staff findings with visible uncertainty, distance and time observed.",
+   "technique": "Render shared immutable classified findings, rank/evidence/status, distance and first-observed duration; bounded rows and head fallback. Keep weak states labeled rather than portraying offline teams as confirmed online staff.",
    "hook": "end-of-tick + HUD render",
-   "anticheat_notes": "cosmetic/client-side (public tab data).",
+   "anticheat_notes": "Read-only presentation of received evidence; no universal vanish claim.",
    "settings": [
     "Keywords",
     "Title",
     "Rank",
     "Time Online",
     "Heads"
-   ]
+   ],
+   "reference": "staff-and-statistics.md"
   },
   {
    "name": "KeybindList",
@@ -1973,11 +2052,29 @@
    "name": "Self-Flag",
    "category": "misc",
    "risk": "none",
-   "summary": "Client-side 'would this flag?' warning: watches the packets you send and warns in chat the moment two actions land in one tick.",
-   "technique": "Counts real action packets (attack/interact, use/place, block-action \u2014 not movement/swing/keepalive) per tick on the outgoing path; a vanilla client sends at most one per tick, so >1 is a signature. Warns in chat (throttled) with the action kinds so you fix the setting (a 0ms delay, an over-fast clicker, two modules sharing a slot) before an anticheat sees it.",
+   "summary": "Source-labeled local packet-sequence diagnostics; not a server anticheat verdict.",
+   "technique": "Classify actual version-specific action packets, including separate modern attack packets; distinguish attempted, queued, dispatched and dropped events. Count dispatch once, and compare specific ordering/invariants rather than a universal action count. Vanilla can send ABORT+START while switching mining targets.",
    "hook": "outgoing packet (read-only) + tick",
-   "anticheat_notes": "Read-only, changes nothing. Encodes the core anti-ban rule: one action per tick, in the order the server expects.",
-   "settings": "Self Flag (on/off, in Client Settings)"
+   "anticheat_notes": "Read-only heuristic. More than one action in a tick is not inherently invalid, and silence does not establish server acceptance.",
+   "settings": "Self Flag (on/off, in Client Settings)",
+   "reference": "flight-mining.md"
+  },
+  {
+   "name": "AutoMineHud",
+   "category": "hud",
+   "risk": "none",
+   "summary": "Mining totals, throughput and observed net currency-rate estimates.",
+   "technique": "Render an immutable session snapshot: deduplicated local completions, rolling/average/peak BPS, blocks/hour, runtime/free slots and optional per-block estimates. Parse styled scoreboard balances with decimal arithmetic; restart baselines after missing/objective/session changes and warm up short intervals.",
+   "hook": "local break-completion observations + bounded scoreboard sampling + HUD frame",
+   "anticheat_notes": "Read-only statistics; local predicted blocks are not server confirmation, and net balance deltas include spending/transfers. Display source and unavailable/warmup states.",
+   "settings": [
+    "Rolling Window",
+    "Money/Token Labels",
+    "Per Block",
+    "Inventory Space",
+    "Reset Session"
+   ],
+   "reference": "staff-and-statistics.md"
   }
  ]
 }

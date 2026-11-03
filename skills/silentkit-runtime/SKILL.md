@@ -20,6 +20,10 @@ making a load *undetectable* rather than about *loading or reloading* code, it's
 GC-hygiene material below is about not leaking memory and leaving the process runnable, nothing more. Module-level game
 techniques live in `silentkit-modules`; the UI layer in `silentkit-interface`.
 
+For concrete rules of thumb and fault cases, read [attach lifecycle](references/attach-lifecycle.md) when working on
+startup acknowledgement, missed hooks, partial restoration, stale agent classes, companion-jar paths or archive
+limits. These are recommendations from review/probes, not a claim that every implementation already satisfies them.
+
 ---
 
 ## 1. Java agents & Instrumentation
@@ -55,13 +59,22 @@ Its job, in order:
 Pass the agent a small options string (`jar=<path-or-handle>;status=<file>`) and have it write a **status file** the
 injector polls, so the external injector UI can report success/failure without a socket.
 
-### 1b. Two-agent boot handoff (one code path for dev and production)
+**Readiness tip:** returning from `loadAgent` or scheduling `bridge.start()` is not `READY`. Acknowledge from the
+successful game-thread/resource completion boundary, report asynchronous failures, and roll back partial startup.
+A timeout must not become a success message. Give each attempt an ID and explicit terminal status rather than
+parsing a “patched classes” log. See [attach lifecycle](references/attach-lifecycle.md).
+
+### 1b. Bootstrap handoff (one code path for dev and production)
 
 The production injector has the decrypted client **bytes in memory**; a dev injector has a **jar on disk**. To avoid
-two inject code paths that drift, load **two agents**: a tiny **boot** agent first that only *publishes the bytes*
-(from the injector's buffer in prod, or by reading the dev jar *inside the target JVM* in dev) into a known holder
-(a system property or a static field in a host-loader class), then the **client** agent that reads that holder and
-runs the sequence above. The real inject logic is identical in both modes — only the trivial boot agent differs.
+two inject code paths that drift, use a small bootstrap that obtains bytes through either source and calls the same
+implementation entry point directly with bytes, options, credentials and instrumentation. Keep payload/credentials
+out of command lines and JVM-wide properties. A two-agent property-holder prototype is possible, but adds stale
+handoff state and pins agent classes in the system loader; it is not the preferred reload architecture.
+
+**Reload tip:** loading a newer jar with the same agent class name does not replace a class already defined by the
+system loader. Keep a versioned bootstrap/bridge stable and load the engine/implementation fresh per attempt too,
+not just the client classes. Track bootstrap ABI, engine build ID and payload hash independently.
 
 ---
 
@@ -120,16 +133,18 @@ reloads:
   each `dev/yourclient/**` class from the byte map on first use, and run your **class transformer in that same step**
   (e.g. rewrite accessor / duck-interface call sites to `invokedynamic`, see §5). One code path defines-and-rewrites,
   whether a class loads now or an hour into the session.
+- **Own the delegation boundary.** Overriding `findClass` alone retains parent-first `loadClass`, so stale parent
+  definitions can shadow new payload bytes. Resolve only owned implementation packages child-first under per-class
+  loading locks; share game/JDK/bridge identities. Check module access for each newly created child module as well.
 - **Split "disposable" from "permanent."** A few infra classes must **survive** a reload/uninject — the host bridge,
   and a small **stable runtime** package your rewritten call sites bind to (the `invokedynamic` bootstrap methods, any
   shared enum the host holds). Define *those* into the **host/game loader** (permanent), and everything under your
   client package into the **child** (disposable). If a bootstrap method the game's own code now links against lived in
   the child, dropping the child would break already-linked call sites. This split is the single most common thing
   people get wrong.
-- **Dropping the loader frees the code *and its string constants*.** Because the client's classes live only in the
-  child, uninject collects the classes and the interned/constant strings with them. That's *why* per-class string
-  obfuscation is loader-local and why a leaked reference (which pins the loader) also keeps your plaintext in memory —
-  a reason the teardown audit matters beyond just "no restart."
+- **Dropping references permits collection; it does not force it.** A leaked listener, worker or linked method handle
+  can pin the child and its classes/constants. Closing a loader or requesting GC does not guarantee immediate class
+  unloading or memory erasure. Inspect retained roots across reloads instead of treating loader close as proof.
 - **Hidden classes for generated hooks.** Code you generate at inject time (per-target mixin hook classes, §5) should
   be defined as **hidden classes** via a full-privilege `MethodHandles.Lookup` on a host class that lives in the child
   loader *and the same package* (`defineHiddenClass` requires the hidden class share a nest/package with its lookup
@@ -169,6 +184,10 @@ Two ways to insert hooks (tick/render/packet) into engine methods:
 Keep hooks thin: fire an event, let modules handle it. Version-branch only the few hooks whose target *signatures*
 differ (see §6) — the common case is that one hook body serves every version and only the `@At` target or a single
 field access changes.
+
+**Coverage tip:** verifier-valid bytes can contain zero intended hooks. Record expected match counts, honor required
+anchors and fail/roll back on missing required targets or transformer errors. Separate planned, inserted and
+installed coverage; a returning `retransformClasses` call alone proves none of those. Test late-loaded targets too.
 
 ---
 
@@ -226,12 +245,19 @@ name-mapping tables over re-decompiling when you only need the renamed member.
 
 - Unregister every hook/listener from the host registry.
 - Stop every thread; cancel every timer/scheduler; await their exit so none fires mid-teardown.
-- Remove your resource provider and reload resources.
 - Strip any pipelines/registries you added so the engine doesn't try to recompile against your (now gone) assets.
+- Remove your resource provider and reload resources at a safe rendering boundary.
 - Drop all host-side references to child-loader objects (static fields, engine singletons, event-bus registrations,
   captured lambdas) so the loader is collectable; verify with a heap dump across several reloads.
 - Close any dev-only sockets/servers (e.g. the §8 control bridge) so a re-inject can rebind their port — a bound
   loopback socket held by the old loader is both a port clash and a reference that keeps that loader alive.
+
+**Failure-handling tips:** guard cleanup steps independently so a save error cannot skip worker/key/socket shutdown.
+If restoring a changed game class fails, report incomplete restoration and retain a safe disabled bridge or require
+restart; do not clear hook state and announce a clean uninject regardless. Linked/unresolved call sites may still
+need the old runtime. Block reinjection into that incomplete state. Renderer/resource reloads need a safe game-thread
+boundary: a full reload mid-world-render can race framebuffers. Details and fault probes:
+[attach lifecycle](references/attach-lifecycle.md).
 
 Clean teardown is what makes repeated hot-reload viable, and it's what lets an uninject return the process to a plain
 unmodified game — it's good engineering regardless of context, and it's the one and only correct shutdown path shared
@@ -249,18 +275,19 @@ in-game server anticheat would flag (§module-skill topic); that is in scope. Hi
 **The fileless re-inject loop (no game restart).** The whole point of the disposable-child-loader pattern (§3) is a
 tight edit→build→see loop against a *running* game:
 1. **Build** the client jar (per engine version, so the artifact name carries its version — `…+<ver>.jar`).
-2. **Attach** with a small dev injector that uses the **Attach API** (`VirtualMachine.attach(pid).loadAgent`). It
-   auto-picks the running JVM whose engine version matches the jar — probe each candidate's `sun.java.command` /
-   classpath for a version segment — or takes an explicit pid; and it **redacts** session tokens/access tokens out of
-   any process name it prints (those leak in launch commands).
-3. **Hand off the bytes.** The shipped injector streams decrypted class bytes into the target and the agent reads them
-   from a system property. For dev, a tiny **first** agent (loaded *before* the client agent) just reads the dev jar
-   from disk *inside the target JVM* and sets that same property — so the real agent's code path runs identically to a
-   production inject, with no separate dev branch. Two `loadAgent` calls: boot (set the bytes) then client (inject).
+2. **Attach** with a small dev injector using the **Attach API** (`VirtualMachine.attach(pid).loadAgent`). Use process
+   name/classpath as discovery hints, then verify actual game version against embedded payload metadata, including
+   explicit PID selections. Require disambiguation for multiple matches. Locate companion jars relative to the
+   injector's code source so invocation works from an unrelated directory. Redact tokens on candidate/error paths too.
+3. **Hand off the bytes** through the shared bootstrap/implementation entry point (§1b), with fresh engine and client
+   loaders where reloadable. Local and downloaded builds should differ in acquisition, not lifecycle/acknowledgement.
 4. **Hot-swap.** The agent defines the client classes into a **fresh child loader**, applies the hooks, and runs. To
    iterate: **uninject** (a bound key / "panic") removes the transformer, retransforms the game classes back to the bytes
    they loaded with, drops the child loader, clears the per-inject state, and nudges GC — then a **newer** build attaches
    into a *new* loader, no restart. The GC-hygiene of §3/§7 is what makes the Nth re-inject behave like the first.
+
+   This loop assumes complete restoration and a compatible stable bridge. Report restart required otherwise, and
+   wait for explicit `READY` after startup/resources rather than treating an attach return as completion.
 
 **Debug hooks, commands and settings.** Keep diagnostics in the code behind cheap gates, not in throwaway patches:
 - **Deterministic sim probes** — expose the prediction sims (§4 in the modules skill) as callable debug methods that run
@@ -278,14 +305,17 @@ tight edit→build→see loop against a *running* game:
   (measures turn smoothness), render-self flags (draw your own ESP / nametag / silent rotation in third person so you can
   *see* where the server thinks you're aiming), and a "treat a dummy entity as a player" flag to test player-only visuals
   on a summoned stand.
-- **Patch-failure dumps** — when a hook fails to apply to an already-loaded class, dump the rewritten bytes and run the
-  framework's verifier, so a broken mixin is diagnosable from the log instead of a silent no-op.
+- **Patch-failure diagnostics** — retain bounded verifier/anchor diagnostics for the affected build and class. Class
+  dumps should be an explicit opt-in debugging artifact, not an automatic failure side effect or the only evidence
+  that required hooks applied. Verify the actual shipped bytecode as a separate check.
 - **A localhost control/telemetry bridge — the biggest iteration win.** A dev-only HTTP server bound to `127.0.0.1`
   inside the running game turns the edit loop from "toggle 20 settings by hand, read chat, repeat" into an automatable
   one: `GET /state` returns the live config export + player state **and a ring buffer of recent chat lines filtered to
   anticheat flags**; `POST /config` applies a whole config in one shot (marshal onto the main thread). Because the game
   and your tooling share the machine, a script (or an agent) can push a setting change, you perform the in-game action,
-  and the script reads back exactly which checks tripped — a closed tuning loop with no GUI. Keep it strictly dev-only:
+  and the script reads back available observations. Label their source: local Self-Flag heuristics, ordinary chat
+  mentioning cheating and genuine server diagnostics are different evidence. A keyword filter cannot establish
+  exactly which check tripped, and absent check names do not establish acceptance. Keep it strictly dev-only:
   **gate it so it never runs in the shipped/production-injected build** (e.g. off whenever the production loader flag is
   set), bind to loopback only, and have it `stop()` in the teardown path (next item) so a re-inject can rebind the port.
   It reads *your own* client state and the chat *you* already see — it is diagnostics, not evasion.
@@ -313,8 +343,10 @@ anti-debugger traps, and tamper watchdogs are out of scope here.)
   license** (subscription current, key not expired/revoked, account not disabled) and only then releases the payload.
   Do the check server-side with the session token — a client-side "am I licensed?" flag is trivially patched.
 - **Encrypted delivery.** Ship the real client bytes **encrypted** (e.g. AES-256-GCM), authenticated to the session,
-  decrypted **in memory** by the injector and handed to the agent (§1b) — never written to disk. A dumped jar from a
-  pirate is then ciphertext, and the plaintext only ever lives in the injected JVM.
+  decrypted **in memory** by the injector and handed to the agent (§1b) — never written to disk. Distribution
+  artifacts can then remain ciphertext. This protects delivery; it does not prevent the owner of a
+  machine from inspecting plaintext while executing it. Verify the bytes actually loaded, enforce allowed origins,
+  and bound expanded ZIP entries/count/total size as well as compressed download size.
 - **Over-the-air updates.** Each build is a versioned, encrypted release the server hands out; the client has no
   self-update (the bytes arrive decrypted from the injector), so "update" means re-inject. A small handshake version
   (`protocol`) lets the server refuse an outdated injector cleanly instead of failing deep in the inject.

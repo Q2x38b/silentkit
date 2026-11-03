@@ -2,6 +2,34 @@
 
 Notable changes to the SilentKit skills. Newest first.
 
+## 2026-11-02
+
+### silentkit-modules
+- Added focused troubleshooting references while retaining the comprehensive guide and catalogue: automation state,
+  flight mining, aim/click validation, packet lifecycle, and staff evidence/mining statistics.
+- Corrected sprint guidance for authorized modern flight: bounded key press followed by a retained latch through
+  forward+strafe and altitude input, collision-aware release, restart cooldowns, and the jump-double-tap timer trap.
+- Added enclosed-mine surveys, stable interior seeds, fixture-aware accounting, whole-layer descent, longer routes,
+  continuous instant mining, curved wall handoffs, collision-safe outside recovery and background-operation tips.
+- Added fishing/selling/cleanup state, current-position water reacquisition, bounded bank escapes, explicit merchant
+  transfers, per-click menu/cursor validation, spare-armor scope, transactional enable and owner/session slot leases.
+- Added passive staff evidence classification with uncertain states/expiry and net currency-rate/break-counter
+  semantics. Expanded the catalogue with these techniques and an AutoMineHud entry.
+- Corrected the universal one-action-per-tick claim and the camera/server mouse-count catalogue mismatch. Added
+  time-based estimator resets, final output/axis bounds, hitbox constraints and pending-subclick cancellation tips.
+- Added packet generations, sequence cutoffs, effective control handling behind holds, tick-end batches, exact replay
+  tokens and callback/queue-bound guidance. Review recommendations are not presented as already implemented fixes.
+
+### silentkit-runtime
+- Added startup/resource acknowledgement, asynchronous rollback, required hook coverage, incomplete restoration,
+  independent cleanup, stale system-loader agents and selective child-first implementation loading tips.
+- Updated dev/shipped handoff guidance, companion-jar discovery, PID/version validation, archive expansion budgets
+  and diagnostic provenance. Qualified class-unloading guarantees and made class dumps opt-in.
+
+### silentkit-interface
+- Added presentation rules for estimated mining/net-currency rates, warmup/missing data, uncertain staff evidence,
+  time observed and explicit lifecycle/fallback statuses without moving behavior into rendering.
+
 ## 2026-10-25 (4)
 
 ### silentkit-interface

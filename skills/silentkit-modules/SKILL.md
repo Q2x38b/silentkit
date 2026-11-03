@@ -17,11 +17,27 @@ port to any game/engine with a tick loop, an input pipeline, and an outgoing-pac
 The companion file `references/modules.json` is a structured catalogue of every module and technique below — query it
 instead of re-reading prose when you need "which modules exist / what does X do / what signals does Y use."
 
+**Evidence rule of thumb.** Numerical examples and bypass ideas need version/server-specific validation. Separate
+implemented fixes, source-confirmed pitfalls, simulation results and live observations. A local Self-Flag warning is
+a client diagnostic, not a server verdict; a clean trace or read-only feature is not a guarantee of acceptance.
+
+**Focused troubleshooting references — read only what the task needs:**
+- [Automation state and menus](references/automation-state.md): cancellation, inventory/cursor scope, slot leases,
+  fishing/selling/cleanup loops, trapped-water exits and background controls.
+- [Flight mining](references/flight-mining.md): sprint-latch retention, jump-double-tap conflicts, enclosure/recovery,
+  whole-layer descent, longer passes and diagnostics that distinguish observation from a server check.
+- [Aim and click validation](references/aim-and-click-validation.md): estimator resets, elapsed-time filtering, final
+  motion/axis bounds, hitbox geometry and cancellation of pending subclicks.
+- [Packet lifecycle](references/packet-lifecycle.md): control-packet stalls, session generations, tick markers,
+  replay identity, sequence cutoffs and deterministic race probes.
+- [Staff evidence and statistics](references/staff-and-statistics.md): passive multi-signal detection, uncertainty,
+  debounced alerts, mining counters and observed net currency rates.
+
 The single most important idea: **a server-side anticheat only ever sees your packets** — rotations, positions,
 interactions, attacks, their timing and their order. Every technique below is ultimately about making that packet
 stream indistinguishable from a human's, or about acting on information (prediction) a human couldn't compute but
-whose *output packets* are still legal. Client-side-only modules (render, HUD, performance) send nothing new and are
-therefore unflaggable; they're catalogued for completeness but carry no detection surface.
+whose *output packets* are still legal. Read-only rendering/HUD features normally add no server actions; review any
+packet, option or input side effects separately rather than calling every client-side module universally unflaggable.
 
 **§9 (Anticheat threat model)** maps the real detectors — Grim, NoCheatPlus, Vulcan, Verus, Intave, Matrix — to the
 counter each technique relies on; read it first when deciding whether a given module is safe on a given server. The
@@ -61,13 +77,16 @@ behaviour engines it points back into are §2 (humanization), §3 (silent aim), 
   ("AutoCrit is working a target, WTap stand down"), a `PacketConflicts` helper that auto-disables a module already
   holding a shared rule slot before the newcomer claims it. Cheaper than event plumbing for a handful of known clashes.
 - *First-class notification/toast queue* — a shared surface for alerts, module-toggle feedback, and update notices.
+- *Scoped actions and transactional enable* — bind deferred work to owner/player/world/menu identity, recheck each
+  individual click and cancel on disable/session change. Roll back failed initialization, release only still-owned
+  hotbar selections, and coordinate shared option baselines. See [automation state](references/automation-state.md).
 
 ---
 
 ## 2. The humanization engine
 
-The shared realism layer. Build every automated behaviour on it, never ad-hoc linear math — one tuned statistical
-fingerprint across all modules is itself less detectable than several different ad-hoc ones.
+The shared realism layer. Prefer common time, ownership and output contracts over independent ad-hoc controllers;
+a shared statistical fingerprint alone does not establish lower detectability.
 
 **Primitives (`Human`, stateless, thread-safe via a thread-local RNG):**
 - `range(min,max)`, `gaussian(mean,sd[,clamp])`, `jitter(spread)` (gaussian around 0), `chance(percent)`.
@@ -103,7 +122,7 @@ when it stops aiming. One `advance()` per tick (or frame) produces a step with, 
   and the normal pull settles back. Rate-limited (~500 ms) so it isn't on every micro-correction.
 - **Flick guard** — a hard `±70°/tick` ceiling: no matter how high aim speed is set, never turn more in one tick than a
   hand plausibly could.
-- **GCD snap** (server path only).
+- **Whole-count emission** for both server-path and camera contributions (see the correction below).
 
 Two entry points: `camera(...)` eases from the *live* camera (so your own mouse still counts and the view interpolates
 smoothly) and `silent(...)` seeds from itself/the camera, for the server rotation. **Both must put the rotation the
@@ -126,6 +145,11 @@ AimProcessor) flags any rotation delta not on the grid. Rules:
    carried remainder, **truncate to a whole count**, apply `count·gcd`, keep the fraction. Done through the mouse-input
    path (as real hardware is) this renders perfectly smoothly — it is *not* a visible stair-step — and it's the single
    biggest fix for the aim-GCD/"analysis" check. An aim-assist applying a *fractional* `turn()` flags every rotation.
+
+**Controller troubleshooting tip:** reset target-motion estimates on identity changes, use elapsed-time filters,
+and apply speed/acceleration and disabled-axis constraints to the final output after every noise/feed-forward term.
+Keep drift points inside the actual hitbox. Read [aim/click validation](references/aim-and-click-validation.md) before
+adding another shake or prediction layer; render-rate noise and final-output violations need different fixes.
 
 **Two more aim lessons (live-tested against a strict aim-analysis AC):**
 - **Vary the turn speed on the TICK timescale, not per frame.** The AC samples rotation per server tick (20/s), so
@@ -257,9 +281,10 @@ Baseline (what a good aim-assist does every frame): exponential approach of posi
 delay + ease-in + overshoot + drift + a multi-sine shake; lead the aim point by target motion. The reference aim
 controller layers these in one `turn()`:
 
-1. **Target-rate feed-forward.** A pure exponential ease *always trails* a strafing target by a roughly constant angle.
-   So track the target's own angular velocity — `ffRate = ffRate·0.6 + (Δwant/dt)·0.4` (a low-pass) — and add
-   `clamp(ffRate·dt, ±6°)` to the step, moving *with* the target instead of lagging it. (A full controller adds a
+1. **Target-rate feed-forward.** A pure exponential ease can trail a strafing target by a roughly constant angle.
+   Track target angular velocity with `alpha = 1-exp(-dt/tau)`, then `ffRate += alpha·(Δwant/dt-ffRate)`; a fixed
+   0.6/0.4 per-frame blend has different physical response at different FPS. Reset samples on retarget/teleport and
+   bound the final combined output, moving *with* the target instead of lagging it. (A full controller adds a
    leak-decayed **integral** bias and a **derivative** term for PD+I; feed-forward is the highest-impact piece and the
    one implemented here.) Clamp it so a retarget/teleport spike can't fling the aim.
 2. **Velocity/distance-scaled leading.** Lead the aim point by the target's per-tick velocity scaled by distance (your
@@ -295,11 +320,10 @@ tick-bound. Click *styles* and fatigue are the start; the levers that actually d
   bottom over a long trade (`0.15 + 0.75·e^(−(t−1.5)/12)`), with a slow random wander on top. Recovery between fights,
   not just monotonic decay.
 - **Injected micro-pauses:** ~1.5% chance per click of an extra 50–150 ms, the kind a real player drops in.
-- **Double-clicks in *every* mode, not just a "humanized" one.** A real mouse always throws the odd double (a bounced
-  switch, a twitchy finger); a burst that is *perfectly* double-click-free is itself a recognisable signature. Fold a
-  few genuine doubles (a 16–42 ms second click, ~6% of clicks) into a plain fixed-CPS mode too — not only into the
-  humanized style — and occasionally skip a click. A distribution check keys on the *absence* of doubles as readily as
-  on uniform gaps.
+- **Optional double-click rhythms.** Some devices/styles produce pairs; this is a configurable timing model, not a
+  requirement that every real mouse double-clicks. If used, keep the second click subject to the same current target,
+  charge, focus, ownership and input gates as the first; cancel it when those prerequisites fail. Preserve configured
+  CPS meaning and measure consumed clicks instead of assuming scheduled clicks were all executed.
 - **Modelled press→release hold window** per click — an instantaneous click has zero press-time variance, which is a
   tell on servers that see both edges.
 - **Style rhythms** that still average to the CPS: *Jitter* (steady, spread from the lognormal), *Butterfly* (quick
@@ -310,6 +334,10 @@ tick-bound. Click *styles* and fatigue are the start; the levers that actually d
 - **Click Assist** amplifies *real* clicks (each genuine press fires a few extra 45–100 ms behind it) so nothing ever
   free-runs — the most defensible mode. **Range-aware** gating (only click with a valid target nearby) stops "clicking
   at the air." Stand down entirely while an aura is driving the attack, or you'll reset the cooldown it times hits on.
+
+**Scheduling tip:** route primary, assist and pending second clicks through one final eligibility check. Use explicit
+monotonic-clock units and clear work on mouse release, menus, disable or session replacement. See
+[aim/click validation](references/aim-and-click-validation.md) for stale-subclick and nanosecond deadline pitfalls.
 
 **Packet timing — one owner-aware queue** (full architecture — queues, re-entrancy, ordering, allowlist — in §11). A single `PacketDelay` service holds packets on the client's own connection
 and replays them in order on the main thread. It exposes **owner-aware rule slots** (outgoing, incoming/knockback,
@@ -464,15 +492,15 @@ anticheat-notes and settings.
   means a sustained pattern, and keep thresholds conservative for accuracy. A clean way to reuse everything you learned
   building bypasses, pointed the other direction.
 - **Break-automation (an auto-miner/nuker that holds up).** Automate block-breaking by steering the REAL view at the
-  target and holding the attack key — let the engine break what a player looking there would (legit by construction;
-  send no break packets of your own). Rules, hard-won against a 4-AC test:
+  target and holding the attack key — let the engine process normal mining rather than sending extra break packets.
+  Consistent input is a useful starting point, not a guarantee of server acceptance:
   1. **Drive the camera PER FRAME, not per tick.** The game breaks whatever the *render-interpolated* crosshair hits
      (recomputed each frame) while the server only sees the *per-tick* rotation — a per-tick jump desyncs them →
      "invalid break (X, looking at Y)" + abort/start double block-actions. Move it as whole mouse-counts through the
      shared applier (§2).
-  2. **Commit to one block** until it's gone. A vanilla client never swaps the block it's mining mid-break — switching
-     sends ABORT(old)+START(new) in one tick (a reconstruction AC flags it). *Instant-break* blocks are the exception
-     (nothing is mid-break, switching is free) — that's what lets a fast rake stay legit.
+  2. **Commit sensibly on slow blocks.** Vanilla can switch mid-break and emit ABORT(old)+START(new) in one tick;
+     that pair alone is not proof of a violation. Repeated unnecessary switches waste progress. For genuinely
+     instant-break blocks, continuous held mining can sweep between valid reachable faces without per-block pauses.
   3. **Gate the break on a "not flicking" check** — only hold attack while the per-tick rotation is small (render ≈
      server), so a smooth continuous sweep breaks freely but a big flick waits a tick. Hold the key through the brief
      gaps so it reads as a continuous hold, not a per-block click.
@@ -480,12 +508,20 @@ anticheat-notes and settings.
      the one behind it.
   5. **Give up on blocks that won't break** — a time budget + a re-commit counter blacklist region-protected blocks,
      else you grind a server-replaced block forever.
-  6. **Movement is where it really flags.** Sprint only on a clean straight traverse — never while breaking/turning
-     (sprint-while-mining desyncs the server's movement simulation → physics/Simulation/sprint flags); single clean
-     ground-hops only (a held multi-tick jump + sprint spikes the physics check); don't walk into an unbroken *hard*
-     block (an instant-break block ahead is fine, it's gone before you arrive); avoid ladders. A WIDE-but-SLOW rake
-     sweep (large amplitude, slow phase) keeps per-tick rotation low — it looks like a human swinging for BPS yet never
-     crosses the flick threshold.
+  6. **Separate ground and authorized-flight policy.** Do not blindly cancel sprint because mining or turning is
+     active. In checked modern flight versions, a tapped sprint stays latched through forward+strafe and altitude
+     input while the final forward impulse remains valid. Predict boosted body clearance and release for genuine
+     braking/unsafe input. Keep ground hops, body collisions and fixtures governed by their actual version's physics.
+
+**Flight-specific tips:** retain a stable interior survey seed, distinguish wall contact from outside recovery,
+exclude ladders from mining work without ignoring their collision, and descend only after the entire loaded layer
+is repeatedly clear. Longer passes and tangent-continuous wall turns can reduce unnecessary stops. See
+[flight mining](references/flight-mining.md), including the ascent-pulse/jump-double-tap trap.
+
+**Other automation tips:** use scoped merchant/cursor transactions and reacquire nearer water after selling
+([automation state](references/automation-state.md)). A stronger staff detector combines passive received evidence
+with explicit uncertainty; mining/currency statistics need session baselines and named sources
+([staff and statistics](references/staff-and-statistics.md)).
 
 ---
 
@@ -665,10 +701,11 @@ apply gravity. The constants that matter:
   survives only where the AC doesn't model use-item slowdown (older NCP configs). This is the cleanest illustration of
   the §9 split: surgical and "legit-looking," yet fatal on the prediction AC precisely because it's physically
   inconsistent.
-- **KeepSprint / OmniSprint** — the tick an attack or knockback clears `isSprinting`, re-assert it (`setSprinting(true)`)
-  when vanilla would still allow a sprint (forward held, food > 6, not using an item, not mid-crit), so you don't lose a
-  step. **KeepSprint is the genuine vanilla sprint state** and safe. **OmniSprint** (sprinting while steering sideways or
-  backward) is *non-vanilla* and trips sprint-direction checks — gate it off on prediction ACs.
+- **KeepSprint / OmniSprint** — distinguish a valid retained latch from forcing a new start after vanilla cancelled
+  it. Entry and continuation predicates differ by movement mode/version; forward+strafe can retain authorized sprint
+  flight. Avoid repeated direct reassertion and competing sprint owners. Backward/no-forward boosts require separate
+  justification; setting a vanilla field alone does not establish valid movement or server acceptance. See
+  [flight mining](references/flight-mining.md) for a bounded key press followed by a retained latch.
 - **Velocity (anti-KB)** — scale `deltaMovement` after the server applies knockback, with **precision jitter** so the
   result is never a clean fraction of the push (§7). Independent H/V percentages read as partial, legit-looking reduction
   rather than immunity.
@@ -686,11 +723,16 @@ Backtrack, FakeLag, Blink, KnockbackDelay and Velocity-delay all sit on one smal
 client's own connection and lets them go later, in order**. Getting its architecture right is what keeps "delay" from
 becoming "desync-until-flagged" or "timed-out."
 
+**Read [packet lifecycle](references/packet-lifecycle.md) when implementing or auditing this service.** The rules of
+thumb below need connection/world generations, explicit control decisions and version-specific tick boundaries;
+a basic concurrent queue and a zero-delay exemption are not sufficient.
+
 **Queues.** Three lock-free queues (concurrent, because incoming is decided on the Netty thread and released on the main
 thread): `incoming` (everything KnockbackDelay holds, plus whatever arrived behind it — one global line), `entityHeld`
 (one target's movement packets, for BackTrack — a line of its own that can jump ahead of nothing it arrived after), and
-`outgoing`. Each held record carries `{packet, releaseAt, queuedAt}` (incoming also the `PacketListener` it must be
-replayed into; outgoing the `callback`/`flush` flags) so order and timing survive the wait.
+`outgoing`. Each held record carries packet, monotonic arrival sequence, originating connection/session/world
+generation, release deadline and observation time (incoming also its listener; outgoing callback/flush flags).
+Use sequence cutoffs for release commands; wall-clock milliseconds cannot distinguish causal order within one tick.
 
 **Per-module rules.** A rule is a one-method callback: `holdUntil(packet, now)` returns **`0` = let it through**, else
 the timestamp it may go. An **outgoing** rule answers "how long does *this* packet wait"; an **incoming** rule the same
@@ -702,19 +744,25 @@ one is switched off with a toast ("FakeLag turned off Blink — both use outgoin
 winning and leaving the loser enabled-but-dead.
 
 **Re-entrancy-safe flush/dispatch.** Releasing a held packet must not recurse back into the rule. Outgoing uses a
-**`ThreadLocal<Boolean> RESENDING`**: the send-queued-packets path sets it true, so the outgoing hook short-circuits
-(returns "not held") for anything it itself re-sends, and clears it in a `finally`. Incoming is replayed on the main
+**one-use receiver+packet token** carried in thread-local state: exempt only that replay invocation and restore the
+previous token in `finally`. A broad boolean also exempts unrelated nested sends. Incoming is replayed on the main
 thread through **vanilla's own dispatch** (an accessor onto the connection's packet handler), guarded so a packet whose
 connection has moved on — listener swapped, configuration phase entered, disconnected, or `!isAcceptingMessages` — is
-dropped, not force-fed into the wrong state.
+dropped, not force-fed into the wrong state. Listener identity alone is insufficient: respawn/dimension replacement
+can keep the same listener. Queue clearing must also invalidate an in-flight old-session producer.
 
-**The allowlist (what you may delay).** Only **movement/position** packets are ever held; the rule returns `0` for
-everything else. **Block/use actions** carry a client sequence the server acks and predicts against — holding them
+**The allowlist (what you may delay).** Limit ordinary movement delays to movement and its required protocol batch
+markers. A modern tick-end marker passed through a flush-on-live path can empty the movement queue every tick.
+Distinguish ordered pass, flush-before-pass and safe immediate control handling; returning `0` alone does not bypass
+an already-held incoming head. **Block/use actions** carry a client sequence the server acks and predicts against — holding them
 desyncs blocks and inventory. **Container clicks, keep-alives, chat, teleport-confirms** go live or you time out / brick
 the connection. And **protocol-critical** inbound packets (disconnect, start-configuration) must never wait: the engine
 forces everything ahead of them to release *now* and queues them immediately behind, so order is preserved without
 stalling the handshake. When a live packet follows still-held ones, **flush the held ones first** (on the main thread,
 synchronously) so the server never sees the later packet before the earlier.
+
+Keepalives need effective handling even behind an indefinite hold, and world/respawn barriers need explicit
+drain/discard semantics. Bound queue count and age globally, independent of optional module Auto Send settings.
 
 **Ordering across the two incoming lines.** When a globally-held (`ALL`) packet is released, any `entityHeld` packets
 that were *queued before it* are released first — the global line and the per-entity line merge back into real arrival
@@ -783,7 +831,7 @@ hidden) but **not** the click-GUI panel layout, so a shared config doesn't move 
 applyModuleStates)` runs the *same* rename/merge passes (a shared config can predate a rename too) then applies, honoring
 the module-states toggle. On top sits a backend: **private** configs saved to your account, **published** copies that go
 through review (`private → pending → approved`), browse/detail/apply with downloads, likes, bookmarks and thumb reviews.
-The session token arrives out-of-band (an injector-set system property), apply fetches JSON and hands it to
+The session token arrives through an explicit bootstrap/entry-point handoff rather than a JVM-wide property; apply fetches JSON and hands it to
 `importConfig` on the main thread, and submit/export reuse the exact same serialisation — one format for disk, live sync,
 and the marketplace.
 
