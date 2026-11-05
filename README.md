@@ -46,8 +46,7 @@ rather than universal bypass guarantees.
 ## Scope & intent
 
 These are **engineering references** for the architecture of a ghost client — the patterns, the math, the
-composition. `silentkit-runtime` deliberately covers only standard JVM loading/reload mechanisms and **excludes
-detection-evasion / anti-forensics** material.
+composition. `silentkit-runtime` deliberately covers only standard JVM loading/reload mechanisms.
 
 ## License
 
