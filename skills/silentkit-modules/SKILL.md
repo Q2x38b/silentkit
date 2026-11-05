@@ -8,7 +8,7 @@ description: >-
   from scratch. Brand-neutral and framework-agnostic; pair with the queryable database at references/modules.json.
 ---
 
-# SilentKit · Modules & Methods
+# Modules and methods
 
 A build reference for the behaviour layer of a ghost client. It is deliberately brand-neutral: it describes
 *patterns and math*, not any one project's code. API names are illustrative (modern Minecraft-style), but the ideas
@@ -21,28 +21,14 @@ instead of re-reading prose when you need "which modules exist / what does X do 
 implemented fixes, source-confirmed pitfalls, simulation results and live observations. A local Self-Flag warning is
 a client diagnostic, not a server verdict; a clean trace or read-only feature is not a guarantee of acceptance.
 
-**Focused troubleshooting references — read only what the task needs:**
-- [Automation state and menus](references/automation-state.md): cancellation, inventory/cursor scope, slot leases,
-  fishing/selling/cleanup loops, trapped-water exits and background controls.
-- [Flight mining](references/flight-mining.md): sprint-latch retention, jump-double-tap conflicts, enclosure/recovery,
-  whole-layer descent, longer passes and diagnostics that distinguish observation from a server check.
-- [Aim and click validation](references/aim-and-click-validation.md): estimator resets, elapsed-time filtering, final
-  motion/axis bounds, hitbox geometry and cancellation of pending subclicks.
-- [Packet lifecycle](references/packet-lifecycle.md): control-packet stalls, session generations, tick markers,
-  replay identity, sequence cutoffs and deterministic race probes.
-- [Staff evidence and statistics](references/staff-and-statistics.md): passive multi-signal detection, uncertainty,
-  debounced alerts, mining counters and observed net currency rates.
+General module engineering lives in this document; query `references/modules.json` for per-module contracts,
+aliases, settings and concrete `bypass_tips`. The one detailed detection/bypass reference is
+[anticheat bypass and validation](references/anticheat-bypass.md). Read it for action validation, detector-facing
+constraints and experiments; no numerical example here is a universal server threshold.
 
-The single most important idea: **a server-side anticheat only ever sees your packets** — rotations, positions,
-interactions, attacks, their timing and their order. Every technique below is ultimately about making that packet
-stream indistinguishable from a human's, or about acting on information (prediction) a human couldn't compute but
-whose *output packets* are still legal. Read-only rendering/HUD features normally add no server actions; review any
-packet, option or input side effects separately rather than calling every client-side module universally unflaggable.
-
-**§9 (Anticheat threat model)** maps the real detectors — Grim, NoCheatPlus, Vulcan, Verus, Intave, Matrix — to the
-counter each technique relies on; read it first when deciding whether a given module is safe on a given server. The
-behaviour engines it points back into are §2 (humanization), §3 (silent aim), §6 (timing), §10 (movement physics) and
-§11 (the packet-interception engine).
+The server observes the protocol stream together with its authoritative world, permissions, plugins and timing.
+Trace the final dispatched action, not merely a desired camera angle or a locally predicted result. Rendering-only
+features should add no gameplay traffic; audit optional commands, input changes and external-service calls separately.
 
 ---
 
@@ -79,7 +65,29 @@ behaviour engines it points back into are §2 (humanization), §3 (silent aim), 
 - *First-class notification/toast queue* — a shared surface for alerts, module-toggle feedback, and update notices.
 - *Scoped actions and transactional enable* — bind deferred work to owner/player/world/menu identity, recheck each
   individual click and cancel on disable/session change. Roll back failed initialization, release only still-owned
-  hotbar selections, and coordinate shared option baselines. See [automation state](references/automation-state.md).
+  hotbar selections, and coordinate shared option baselines. See the ownership and transaction rules below.
+
+### Ownership, cancellation and independent features
+
+- Bind work to `{owner, player, world/session generation, prerequisites, deadline}`. Module re-enable creates a new
+  engagement. A surviving connection, UUID or menu title does not preserve an old task's authority.
+- Enable transactionally: roll back partially acquired keys, timers and claims if setup fails. Bound consecutive
+  tick failures, reset the error count after success and disable cleanly instead of retaining controls indefinitely.
+- Camera, movement, attack, item use, hotbar selection and packet rules are separate resources. Recheck the actual
+  claim before each action; distinct independently cancellable tasks need distinct owner tokens.
+- A temporary slot swap is a lease: restore only in the same session while still owning the expected selection.
+  Manual slot changes revoke restoration. Shared option overrides need one baseline, prioritized claims and a way
+  to preserve user edits; independent snapshots restore the wrong intermediate value in different disable orders.
+- Keep separable features independently configurable: navigation, economic/menu actions, destructive cleanup and
+  combat are different tasks. Migrate old combined settings only when the new explicit keys are absent.
+- A readiness announcement and an active timed effect have different lifetimes. Keep unused availability pending
+  through menus or another owned task when the server semantics permit it; start the effect deadline on activation
+  or confirmation, not on message receipt. Death/session replacement/disable invalidates pending work. Interrupting
+  an already consumed effect must not queue a second activation. Report detected, deferred, attempted, confirmed and
+  failed states separately so a missing action is not misdiagnosed as missing chat detection.
+- Observe server announcements at a verified incoming-message hook on the game thread, independently of display
+  filters, line wrapping and action-bar rendering. Separate server notices, attributed player chat and local echoes;
+  normalize formatting/spacing and test captured messages. Do not replay historical chat when a module is enabled.
 
 ---
 
@@ -98,6 +106,8 @@ a shared statistical fingerprint alone does not establish lower detectability.
 - `approach(cur,target,rate,dt)` — one step of a **frame-rate-independent** exponential approach, moving
   `1 − e^(−rate·dt)` of the remaining distance. Use this everywhere instead of `cur += (target−cur)·k`, which is
   framerate-dependent and so leaks your FPS into the rotation signal.
+- Stateful noise also needs a time base: for a stationary AR process, use `a = exp(-dt/tau)` and scale innovation
+  by `sigma * sqrt(1-a*a)`. A fixed per-tick coefficient is an example at that cadence, not a per-frame constant.
 - `mouseGcd()` and `snapToGrid(base,target,gcd)` — the GCD rule (below).
 
 **Reaction gate (`Reaction`, stateful).** `ready(present, minMs, maxMs)`: arms a randomized delay on the *rising edge*
@@ -117,7 +127,7 @@ when it stops aiming. One `advance()` per tick (or frame) produces a step with, 
 - **Per-tick pace — a right-skewed log-normal**, `pace = clamp(exp(N(0,0.14)), 0.72, 1.6)` (median 1), so the turn
   never advances the exact same fraction twice. This replaces the old symmetric uniform `×[0.85,1.15]` band: real human
   turn speeds are right-skewed (most a touch slow, the odd fast one), and a flat band reads as too even to a detector.
-  Plus a hair of positional jitter while turning (`jitter(0.12)` on yaw, `0.08` on pitch) above 1.5° of remaining delta.
+  Optional positional jitter while turning (`jitter(0.12)` on yaw, `0.08` on pitch) above 1.5° of remaining delta.
 - **Overshoot** — a turn over ~25° flicks `min(|delta|·0.12, 6)°` past the target, then the offset decays (`×0.55`/tick)
   and the normal pull settles back. Rate-limited (~500 ms) so it isn't on every micro-correction.
 - **Flick guard** — a hard `±70°/tick` ceiling: no matter how high aim speed is set, never turn more in one tick than a
@@ -131,8 +141,7 @@ server sees on the grid** — see the correction in rule 5 below; a camera aim-a
 
 **The mouse-GCD rule (the key anti-detection realism).** A real mouse turns only in whole "counts," so every rotation
 the vanilla client sends is a multiple of a sensitivity-derived step. The engine mirrors the exact vanilla math:
-`f = sens·0.6 + 0.2`, then `gcd = f³ · 1.2` **degrees per count**. A detector that reconstructs this GCD (e.g. Grim's
-AimProcessor) flags any rotation delta not on the grid. Rules:
+`f = sens·0.6 + 0.2`, then `gcd = f³ · 1.2` **degrees per count**. A detector that reconstructs this GCD in an aim-analysis pipeline flags any rotation delta not on the grid. Rules:
 1. Snap the rotation that goes *on the wire* to the grid, anchored on the last sent value:
    `snapped = base + round((target−base)/gcd)·gcd`.
 2. If a snapped step rounds to 0 but the target is still ≥1 count away, take the smallest grid step that *progresses*
@@ -140,28 +149,32 @@ AimProcessor) flags any rotation delta not on the grid. Rules:
 3. **Carry the sub-count remainder** across ticks instead of snapping-and-dropping it — a real mouse accumulates.
 4. Advance eased aim on a real `dt` time base (sub-tick) so the yaw-rate signal isn't a 20 Hz staircase; snap only the
    value that actually leaves on a packet.
-5. **A camera aim-assist is NOT exempt** (live-tested correction). If the module turns the real view and those rotations
+5. **A camera aim-assist is not exempt from the output contract.** If the module turns the real view and those rotations
    reach the server, apply them as **whole mouse counts** too — convert the degree step to counts (`step/gcd`), add the
    carried remainder, **truncate to a whole count**, apply `count·gcd`, keep the fraction. Done through the mouse-input
-   path (as real hardware is) this renders perfectly smoothly — it is *not* a visible stair-step — and it's the single
-   biggest fix for the aim-GCD/"analysis" check. An aim-assist applying a *fractional* `turn()` flags every rotation.
+   path, validate visible smoothness and the serialized deltas across sensitivities and frame rates; the shared
+   contract prevents a raw contributor from defeating the quantized ones.
 
-**Controller troubleshooting tip:** reset target-motion estimates on identity changes, use elapsed-time filters,
-and apply speed/acceleration and disabled-axis constraints to the final output after every noise/feed-forward term.
-Keep drift points inside the actual hitbox. Read [aim/click validation](references/aim-and-click-validation.md) before
-adding another shake or prediction layer; render-rate noise and final-output violations need different fixes.
+**Controller troubleshooting:** apply speed/acceleration and disabled-axis constraints to the final output after
+every noise/feed-forward term, and keep candidate points inside the actual hitbox. Keep camera momentum separate
+from target-motion estimation: reset samples on identity changes, teleports or meaningful tracking gaps instead of
+differentiating across unrelated targets. Use `alpha = 1-exp(-dt/tau)` and
+scale stochastic decay/innovation with elapsed time. Preserve momentum through ordinary retargets, but clear stale
+velocity and fractional counts after ownership changes or long stalls. Revalidate one cached target per frame;
+replace it only when invalid or a competitor improves materially. Use entry/exit hysteresis around an on-target zone.
+Audit private RNG paths when a global humanization level is exposed; adding independent noise does not repair a
+state/time bug. Detector-facing checks and the frame-rate matrix are in
+[anticheat bypass and validation](references/anticheat-bypass.md#rotation-output).
 
-**Two more aim lessons (live-tested against a strict aim-analysis AC):**
-- **Vary the turn speed on the TICK timescale, not per frame.** The AC samples rotation per server tick (20/s), so
-  per-frame speed noise averages out within a tick and the motion still reads as a *constant* rate (and a constant rate
-  traces a *linear* path — both flag). Re-roll a target speed multiplier (≈0.45–1.6×) every ~100–220 ms, independently
-  for yaw and pitch, and ease toward it. A rate-cap is the usual culprit: catching a strafing target it pins the speed
-  at the cap, so the variation has to be layered back on.
-- **One off-grid contributor re-flags everything.** A clean, grid-snapped aim-assist went straight back to flagging the
-  moment an auto-clicker with its own "click jitter" (a raw fractional `turn()` on each click) was turned on — the
-  jitter injected off-grid rotations into the same aim stream. *Every* site that nudges the view (click jitter, aura,
-  clutch, scaffold, recoil) must route through the same whole-count snap, or feed one shared applier that does. Corollary
-  for testing: isolate modules — a clean module can be re-flagged by a dirty one that shares the rotation.
+**Rotation-stream calibration examples (verify on the target implementation):**
+- **Measure variation at the protocol's sampling cadence.** Per-frame noise can average out within a protocol tick,
+  while a rate cap can dominate the result when tracking a fast target. If experimenting with a varying response,
+  update its envelope at a measured cadence and ease toward it. Compare final sampled output with the relevant
+  baseline instead of assuming a particular multiplier or re-roll interval is a bypass.
+- **One off-contract contributor can invalidate a shared output.** An auto-clicker's independent fractional
+  `turn()` jitter can reintroduce deltas excluded by an otherwise quantized aim controller. Every view contributor
+  (click jitter, aura, clutch, scaffold, recoil) needs the same output contract or one shared applier. Test modules
+  separately and together to distinguish an individual fault from a conflict between contributors.
 
 ---
 
@@ -239,24 +252,14 @@ mutate entity state), cap the tick budget.
     is dangerous), and *staircasing* (jump again right after a clutch). "Dangerous" = voids / never settles / exceeds a
     block threshold / would exceed your health after safe-fall and fall-damage-multiplier attributes. Lands in water →
     never dangerous.
-  - **Why an instant block-clutch flags, and how to make it clean (live-tested vs Grim).** Placing a block under
-    yourself in midair and landing on it *the same instant* trips **GroundSpoof** ("claimed on-ground midair") and
-    **Simulation** (your position can't be reached — the server doesn't have the block yet) and **RotationPlace /
-    Post** (place ordered against a flying packet it doesn't match). None of that needs an onGround *spoof* — it's the
-    natural gap between the client placing+landing on a block and the server **confirming** the placement (~your ping
-    worth of ticks; brutal at 150 ms+). A legit human clutch avoids it by placing against a **real wall/ledge with
-    lead** — a couple of blocks *above* where they'll land, so they fall onto it over a tick or two and the server
-    confirms the block before they touch it. So a clean clutch = **(a) place against a visible, reachable face only**
-    (raytrace the exact hit point a real click makes — don't fire a place the server will reject), **(b) place EARLY
-    with lead** (against a wall while still N blocks up, not at the last reachable moment), **(c) one place per tick in
-    order**, and **(d) accept it's only clean at sane ping**. (a mature client's undetected clutch does exactly this: A* block-
-    path planning + visible-face checks + an exact-hit raytrace + simulating the landing is *stable* before committing.)
-    When there's nothing to place against up high (an open drop), lead is impossible — that's when you fall back to
-    **MLG** instead.
-  - **MLG/auto-bucket** reuses the sim to find the landing, then validates a **top-face raytrace** before placing water.
-    It's the clean counterpart to a block-clutch: water goes on **real ground the server already has**, you take no fall
-    damage through normal mechanics, then you pick it back up — no GroundSpoof/Simulation because nothing the server
-    doesn't know about is ever load-bearing. One action per tick, aimed down at a real face.
+  - **Placement lead and confirmed support.** Predicted placement/landing can precede server acknowledgement.
+    Plan against real reachable supports, validate the exact action ray, and account for latency before treating a
+    new block as load-bearing. A* can search candidate support chains, but each step still needs live revalidation
+    and observed confirmation. If no valid support chain exists, use another supported fall mitigation or stop;
+    do not force a placement to satisfy the prediction. See [action validation](references/anticheat-bypass.md#reach-placement-and-mining).
+  - **MLG/auto-bucket** can reuse the landing simulation and a reachable top-face ray, subject to the dimension's
+    fluid rules, actual held item and server/world acknowledgement. Revalidate retrieval as a separate use action;
+    predicted water, local landing and confirmed damage prevention are different observations.
   - **Mace fall-smash impact timing:** a smash does the most damage on the *last airborne tick*, so hold the attack
     while still falling and only release when `aboutToLand` — step one vanilla fall move ahead (`(vy−0.08)·0.98 − 0.08`)
     and check whether that move collides. A very large drop (>5) smashes immediately rather than risk clipping the
@@ -308,8 +311,9 @@ target that ducked behind cover faster than one they've never seen).
 
 ## 6. Timing realism (clicks + packets)
 
-**Auto-clicker — make the *statistics* human, not just the mean CPS.** Run it per-frame so rates above 20 CPS aren't
-tick-bound. Click *styles* and fatigue are the start; the levers that actually defeat a click-distribution check:
+**Auto-clicker timing models.** A frame scheduler can resolve intervals between game ticks, but the actual action
+path and protocol still constrain dispatch. The following rhythm/fatigue models are candidates to compare with a
+relevant measured baseline; no distribution establishes human origin or server acceptance:
 - **Lognormal (right-skewed) gaps:** `gap ·= exp(k·gaussian)` (k≈0.14). Most gaps near the mean, the odd long one,
   almost never an impossibly short one. A symmetric gaussian around the mean is itself a tell.
 - **Repeat-gap tendency:** ~18% of the time, reuse the previous interval ±a few ms. Hands fall into a cadence; they
@@ -336,15 +340,17 @@ tick-bound. Click *styles* and fatigue are the start; the levers that actually d
   at the air." Stand down entirely while an aura is driving the attack, or you'll reset the cooldown it times hits on.
 
 **Scheduling tip:** route primary, assist and pending second clicks through one final eligibility check. Use explicit
-monotonic-clock units and clear work on mouse release, menus, disable or session replacement. See
-[aim/click validation](references/aim-and-click-validation.md) for stale-subclick and nanosecond deadline pitfalls.
+monotonic-clock units and clear work on mouse release, menus, disable or session replacement. Use `nowNanos + delayMs * 1_000_000L` when the scheduler clock is nanoseconds; a second cooldown can mask a units
+bug, so test the actual deadline independently. Optional double-click rhythms are modes, not compulsory behavior.
+Count generated, cancelled and consumed clicks separately and discard stall catch-up. The full dispatch contract is
+in [click validation](references/anticheat-bypass.md#click-validation).
 
 **Packet timing — one owner-aware queue** (full architecture — queues, re-entrancy, ordering, allowlist — in §11). A single `PacketDelay` service holds packets on the client's own connection
 and replays them in order on the main thread. It exposes **owner-aware rule slots** (outgoing, incoming/knockback,
 per-entity) claimed with a module token; a second claimant notices the clash and the conflicting module is auto-disabled
 first. Refinements shared across FakeLag / Blink / KnockbackDelay / BackTrack:
 - Cap a held packet's **age** (a Max-Desync setting, e.g. release once the server is >N ms behind where you really are)
-  so movement never desyncs far enough to flag.
+  to bound retained state; the age cap is not an acceptance guarantee.
 - **Allowlist what you delay.** Only *position* packets get held; block/item actions (which carry a client sequence the
   server acks and predicts against), container clicks, keep-alives, chat and teleport-confirms go out live — holding
   those desyncs blocks/inventory or times you out. When a live packet follows held ones, flush the held ones first so
@@ -376,8 +382,7 @@ first. Refinements shared across FakeLag / Blink / KnockbackDelay / BackTrack:
     trades don't waste crystals.
   - **Predict:** lead the target by a short forward sim / its velocity for both the damage ranking and the detonate aim;
     **rapid-fire:** place-and-break in the same tick above a min-efficiency; **client-remove** the detonated crystal so
-    the next place fires immediately. Interactions carry explicit coordinates, so the aim is **purely for legitimacy**
-    (eased through `HumanAim`, silent or real).
+    the next place fires immediately. Interactions carry explicit coordinates, so the aim and reach must agree with the chosen interaction and the actual sent rotation.
   - **Respawn-anchor combo** is a staged state machine (PLACE → [COVER] → CHARGE → DETONATE → POST), each step paced by
     a tick timer, *confirmed against the world* (anchor present before charging, charge risen before detonating), and
     retried a few ticks before giving up. Dimension-gated (anchors set spawn, not explode, in the Nether). Carries the
@@ -391,16 +396,15 @@ first. Refinements shared across FakeLag / Blink / KnockbackDelay / BackTrack:
     what prevents the "placing into air / on fire" rejected-packet bug.
   - **Hit-vec jitter.** The clicked point is the neighbour face's centre plus `jitter(0.18)` (clamped `±0.4`) on the two
     **in-plane** axes only — never along the face normal — kept well inside the face so the block still places and stays
-    in reach. Without it every placement lands dead-centre on the face, a trivial tell. The planner's `hitFor` /
-    `rotationTo` use the *un-jittered* centre so aim cost is stable.
-  - **A shared A\* placement planner** (`PlacementSearch`) — now implemented, not just the aspiration. `frontier(targets)`
+    in reach. Without it every placement lands dead-centre on the face, a trivial tell. The planner and executor must share the same sampled point; a readiness ray to a different center does not validate it.
+  - **A shared A\* placement planner** (`PlacementSearch`), as an implementation pattern. `frontier(targets)`
     returns the subset fillable *this tick* (replaceable *and* a reachable sturdy face exists), ordered **cheapest aim-
     movement first** (`rotCost = |Δyaw| + |Δpitch|` from your current look to the click face), so a caller places one or
     a few per tick with the smallest turn and the frontier re-expands next tick as fresh blocks create new supports.
     `planTo(goal, maxSteps)` is a **bounded best-first (A\*)** over the 6-neighbourhood to bridge to a goal you can't
     reach yet: seed the open set with every placeable-now cell near the goal, treat each expanded cell as solid-once-
     placed, order by `path.length + blockDistance(goal)` (cost = steps, admissible heuristic), prune past reach/budget,
-    and return the placement order ending at the goal. Surround already runs on `frontier()`; scaffold, clutch and
+    and return the placement order ending at the goal. A surround caller can run on `frontier()`; scaffold, clutch and
     auto-ladder can share the same solver with different goal tests — "which block next" becomes one planner.
   - **Scaffold** modes: *Legit* (predictive auto-sneak at edges — crouch when a fixed look-ahead along your heading puts
     your feet over air, released on a randomized human hold; you place), *GodBridge* / *TellyBridge* (places under your
@@ -410,24 +414,19 @@ first. Refinements shared across FakeLag / Blink / KnockbackDelay / BackTrack:
     re-anchor** — if the feet column can't be filled (you clipped a corner / stepped a gap), reach out to the 8
     neighbouring columns so you catch yourself instead of falling.
   - **Clutch** scans from just under the feet downward through reach, trying the whole 3×3 ring plus the momentum/landing
-    column nearest-first, places at the highest reachable support, then *returns slot and view*. The look-down is eased
-    and **cosmetic** (the block is placed off the hit result, not the rotation), and the key guard is a `released()`
-    check (landed / no longer in a dangerous fall / timed out) so the view or silent rotation **never sticks** mid-air.
+    column nearest-first, places at the highest reachable support, then returns owned slot/view claims. Ease the view
+    and validate the actual action rotation and hit candidate before use. A `released()` check (landed, no longer in
+    danger, timed out or cancelled) prevents a stale rotation claim after the action ends.
 - **Enchant-weighted item scoring.** A shared comparator so auto-armour, auto-weapon, "best-gear-only" chest-steal and
   the inventory manager all agree: score armour as armour points + toughness (half-weighted) + protection; a weapon by
   attack damage + small per-enchant bonuses; a tool by dig speed + efficiency/fortune. Driving it off the item's own
   **attribute modifiers** keeps it robust across game versions (higher is always better). Feeds a best-per-slot equip +
   a 2-set quick-swap, and a "better than what's equipped" gate for looting.
-- **Anti-bot behavioural score.** Replace binary flags (invisible / never-moved / not-in-tab) with an accumulating
-  per-entity score summed from *independent* signals since you first saw them: sustained air-hover (physically
-  impossible — count consecutive ticks airborne with ~0 vertical motion, not in water, not riding; >1 s ≈ conclusive,
-  +10), not in the tab list (+4), NPC/red-coloured name tag (+5). Threshold it (e.g. 8). Won't trip on a player standing
-  still, and no single weak signal false-positives. **Compute the verdict once per tick and cache it** on the per-entity
-  track, so the many per-frame callers read a cached boolean instead of re-scoring. Expose `ignoreForCombat` /
-  `ignoreForVisuals` so aura, auto-clicker, tracers, radar and target-HUD all skip flagged entities. **Teammate
-  detection** rides the same gate (so you never attack your own team): a player is a teammate if they share your vanilla
-  scoreboard team, *or* share a non-white name `TextColor` (both non-null, equal, value ≠ `0xFFFFFF`), *or* share a
-  non-empty scoreboard-team **prefix string** — the three ways servers actually mark teams.
+- **Anti-bot behavioural score.** Combine independent received cues instead of promoting invisible, stationary or
+  unlisted status directly to certainty. Hovering can have legitimate causes; account for abilities, fluids, riding,
+  effects and incomplete observations. Calibrate confidence/expiry for the target environment and cache the result
+  once per tick for shared combat/visual consumers. Team identity is strongest when actually supplied by the game's
+  team state; matching name colors or prefixes are weaker configurable hints, not universal teammate proof.
 - **BackTrack (opportunistic rewind for reach).** After you hit a target who then backs away, **hold just that entity's
   movement packets** for up to a Latency (its real server position keeps being tracked meanwhile, so it stays correct);
   on your screen it lingers where it was — closer to you — buying reach. It arms only once they start moving *away*,
@@ -439,9 +438,9 @@ first. Refinements shared across FakeLag / Blink / KnockbackDelay / BackTrack:
   is now (`realAim = look·normalize(eye→serverPos)`); keep holding only while `ghostAim > realAim` — the freeze sits
   *further along your look vector* than the live position, so it actually buys the hit. The instant `realAim ≥ ghostAim`,
   release: holding then only adds desync for no reach gained.
-- **Hitbox expansion done legally.** When you widen a target's hitbox for easier hits, **project the outgoing
-  interaction vector back onto the real box edge** so the attack packet the server receives still lands on the genuine
-  hitbox — the expansion helps *you* aim, but the server sees a legal hit, not an impossible-angle one.
+- **Hitbox assistance and real geometry.** When you widen a target's hitbox for easier hits, **project the outgoing
+  interaction vector back onto the real box edge** then recheck the actual eye ray and reach against that real box. Projecting a point alone cannot validate an
+  interaction the actual sent rotation would miss.
 - **Range-gated exploits.** Only engage fakelag/timer/kb-delay when an enemy is within N blocks and roughly ahead,
   via a shared "nearest-enemy-within(range, angle)" predicate — so you're never desynced or lagging out of combat where
   it's both pointless and conspicuous. Dynamic fakelag goes further: lag while *closing* on a target, then dump the
@@ -456,9 +455,9 @@ first. Refinements shared across FakeLag / Blink / KnockbackDelay / BackTrack:
   fallBonus + 0.5·DensityLvl·f`; Breach cuts effective armour by `0.15·lvl` (`armor = armorValue·(1−0.15·breach)`);
   reduce by the vanilla armour formula `cut = min(20, max(armor/5, armor − raw/(2+toughness/4)))/25`; `expected =
   raw·(1−cut)`. A big fall then favours Density even on an armoured target, where a fixed threshold mis-picks.
-- **Velocity precision jitter.** When reducing knockback, scale the server's push by *raw floats* and add ±~3% per-hit
-  jitter (`h,v ±= (rand−0.5)·0.06`, clamped `[0,1]`) so the result never lands on a clean fraction (an exact `0.40`, a
-  perfect `0`) — a non-physical signature. The jittered result reads like ordinary lag variance.
+- **Velocity modification experiments.** Partial or probabilistic changes still alter a server-issued impulse.
+  Record the original push, applied result and collisions, and test separately from normal knockback. Precision
+  jitter changes a distribution; it does not restore the trajectory a prediction check expects.
 
 **Modules that round out a modern kit:** aura (killaura / silent-aura), crystal / anchor, auto-mace with impact-timed
 rotation + enchant-by-damage pick (folded into a trigger/auto-clicker + a weapon-swap), velocity / anti-knockback
@@ -513,21 +512,86 @@ anticheat-notes and settings.
      input while the final forward impulse remains valid. Predict boosted body clearance and release for genuine
      braking/unsafe input. Keep ground hops, body collisions and fixtures governed by their actual version's physics.
 
-**Flight-specific tips:** retain a stable interior survey seed, distinguish wall contact from outside recovery,
-exclude ladders from mining work without ignoring their collision, and descend only after the entire loaded layer
-is repeatedly clear. Longer passes and tangent-continuous wall turns can reduce unnecessary stops. See
-[flight mining](references/flight-mining.md), including the ascent-pulse/jump-double-tap trap.
+### Stateful inventory and menu automation
 
-**Other automation tips:** use scoped merchant/cursor transactions and reacquire nearer water after selling
-([automation state](references/automation-state.md)). A stronger staff detector combines passive received evidence
-with explicit uncertainty; mining/currency statistics need session baselines and named sources
-([staff and statistics](references/staff-and-statistics.md)).
+Bind each click plan to the screen instance, container instance/ID, player and world. Same title/new ID is a new
+transaction. Revalidate source, destination and cursor before every actual click, including each step of a swap;
+budget actual interactions rather than queued lambdas. Match actions by normalized display text plus layout/material
+information. Opening, transferring, requesting a transaction and observing its result are separate phases.
+
+If quick-move is rejected, an explicit pickup/place sequence can help, with acknowledgement-aware progress,
+partial-stack handling, rejected-slot detection and bounded retries. Inspect whether an item already moved before
+retrying, or the retry may pull it back out. Transition to confirmation only with the intended contents and an empty
+cursor. Scope destructive cleanup to explicitly chosen item groups/slots; spare hotbar/inventory armor does not
+include equipped armor or offhand by default. Close only a menu the task still owns.
+
+For dependent placement, retain one immutable `{target, support, face, hitPoint}` candidate from planning through
+alignment and use. Sample an optional point once. Recheck the real ray, reach, replaceability, item and ownership
+before execution, try other valid neighbors, and distinguish an interaction being consumed from a confirmed block
+change. A full-face requirement is a conservative policy, not a universal placement rule. Emergency waiting starts
+with the current attempt, not an uninitialized last-success timestamp.
+
+### Navigation and multi-stage tasks
+
+Use observed transitions such as `select goal → route → approach → settle view → act → observe result → recover`.
+Route completion must describe the whole goal, not the first successful jump/platform. Replan on geometry, effects,
+permission or target changes; normalize transient modifiers when comparing physics profiles so ordinary sprint
+changes do not invalidate every route. Model ladders, vines, fluids, bounce blocks and other special transitions as
+separate verified edges, not as universal jumps. Reject unsupported transitions explicitly.
+
+- Prefer a stable interior survey seed over the player's current boundary cell. Unknown/unloaded, protected or
+  excluded cells are not completed work. Permanent fixtures can be excluded as targets while retaining collision.
+- Confirm whole-region/layer completion across loaded surveys before changing reference height. Maintain a stable
+  floor/anchor, account for coasting/headroom, and distinguish wall contact from genuinely leaving the route volume.
+- Use supported, player-width corridors and real step/jump limits. Water proximity alone does not establish a safe
+  interaction stance or clear cast. Ease from route view into action view before the action starts.
+- Choose the movement medium deliberately. A combat route through connected open water must not trigger the
+  accidental-water escape policy. Float while holding melee position; aim only with actual reach and line of sight.
+  Follow route waypoints while approaching, release target tracking on route failure and bound no-progress retries.
+  Replanning should preserve camera acceleration rather than restart its turn every few ticks. Return via a
+  climbable bank when the task ends; a two-block wall is not an exit and repeated jumping is not progress.
+- Economic/navigation loops should pause casting before walking, account for any outstanding item/projectile,
+  use a capacity hysteresis band, and observe transfers/sales rather than assume fixed sleeps mean completion.
+  Navigation, selling, optional cleanup and creature combat can have independent switches. Without navigation,
+  preserve the manual anchor/view for return; with it, reconsider nearby reachable goals from the current position.
+- Inventory movement needs an explicit supported-screen policy and must reject focused text entry. Background
+  operation is owner-specific: exempt only the active task's focus/held-input gates while keeping user-opened menus
+  meaningful. Use elapsed time under FPS throttling and a bounded frame floor respecting the user's limit; do not
+  rewrite a global pause preference just to keep one task running.
+
+Exercise same-title/new-container IDs, cursor changes between clicks, partial/rejected transfers, manual slot
+changes, disable/re-enable, competing owners, effect changes, multi-platform routes, medium transitions, trapped
+banks and context loss. Fake clocks, click/send adapters and terrain fixtures avoid mutating real inventory in tests.
+
+### Passive identity evidence and operational statistics
+
+One shared collector should combine already received profiles, loaded entities, team/rank metadata, attributed chat
+and recent removal. Prefer UUID identity; do not merge conflicting UUIDs by name. Exclude self, apply ignore before
+watch/heuristic rules and reevaluate changed display names. Normalize formatting, width/small-capital variants and
+separators before whole-word rank matching; a rank-like username or unattributed chat body is not rank evidence.
+
+Separate confirmed/loaded/observed-online findings from uncertain unlisted, team-only or recently removed evidence.
+A completely server-hidden identity cannot be discovered passively. Weak evidence needs an observation window,
+expiry and bounded history; an offline team must not refresh an online claim forever. Debounce per identity,
+aggregate alert overflow and keep automatic disconnect opt-in and dependent on strong evidence. Scope late callbacks
+to their original session. Passive collection does not authorize command probes or hidden requests.
+
+Name every metric's numerator, denominator and source. Count unique local completions separately from attempts and
+server confirmations. Maintain session totals, rolling/average/defined-peak rates and availability states separately.
+Use bounded deduplication, parse styled scoreboard labels/prefixes/suffixes and configured compact number formats,
+and use decimal arithmetic for balances. Zero differs from missing/unparseable data. A new objective, source, gap,
+world or session starts a new baseline. Net balance changes include spending/transfers; do not call them gross
+revenue. Align action and balance windows before per-action estimates, warm up short intervals, and freeze ended
+sessions consistently. Test huge/negative/zero deltas, duplicate callbacks, missing/replaced sources and old-session
+updates; display uncertainty instead of inventing server-confirmed outcomes.
 
 ---
 
-## 8. Render / world-visual techniques (detection-free, but worth doing right)
+## 8. Render and world-visual techniques
 
-These send no packets, so they never flag — but the *rendering* approach matters for correctness across engine versions:
+These patterns should be read-only with respect to gameplay traffic. Audit optional input, command, option and
+packet side effects separately; a render-only claim does not establish server policy acceptance. The rendering
+approach still matters for correctness across engine versions:
 - **True 3D world-space box ESP** (implemented as an ESP "World" mode, factored into a reusable `WorldMesh` +
   `WorldRenderTypes`) — build the box in **camera-relative world space** and **submit it inside the level render pass**
   (`submitCustomGeometry` on the level-submit event), so edges depth-test and occlude against terrain like real world
@@ -565,104 +629,25 @@ These send no packets, so they never flag — but the *rendering* approach matte
 
 ---
 
-## 9. Anticheat threat model
+## 9. Anticheat bypass and validation
 
-Before any module is "safe," know what is watching. A server anticheat only ever sees your packet stream, and it runs
-a fixed set of **detectors** over it. A technique is safe on a server exactly when none of that server's detectors can
-separate its packets from a human's — so "is X legit" is never a yes/no, it's "which detector would X trip, and does
-this server run it." This section maps the major anticheats, the detector families, *why a clean/non-physical value is
-what gets caught*, and which engine elsewhere in this skill keeps you under each.
+Use the single [anticheat reference](references/anticheat-bypass.md) for detector families, click/placement validation,
+rotation output, movement/packet consistency, corrections and reproducible calibration. `modules.json` adds concrete
+per-module `bypass_tips`, `prerequisites`, `flag_triggers` and `validation.scenarios`; resolve aliases before adding a
+new module. General ownership, state and queue mechanics remain in this skill so the reference need not duplicate them.
 
-**The anticheats, by philosophy** (design against the strictest one you'll meet):
-- **Grim (GrimAC)** — *prediction-first*, and the one to assume. It reimplements vanilla physics, replays **your own
-  inputs** through it each tick, and bounds your real position to a tiny **offset** (fractions of a block) from the
-  predicted one — any motion your inputs can't justify grows the offset and flags. It also reconstructs your
-  mouse-sensitivity **GCD** (its AimProcessor) and checks server-set **velocity/knockback** and **explosion** motion
-  precisely. It models sprint, use-item slowdown, **step height via the attribute**, and rotation granularity, and uses
-  **transaction** (ping) packets to pin how stale your position may legitimately be.
-- **NoCheatPlus (NCP)** — *threshold/heuristic*, legacy but everywhere. Independent checks with violation levels:
-  survivalfly (speed/air), fastbreak, fastplace, direction, reach, morepackets/timer, autoclicker. It doesn't fully
-  simulate physics, so it's beaten by *being under the number* (raw speed, reach distance, packets-per-second) rather
-  than by being physically consistent. Uses **keepalive** for latency.
-- **Vulcan** — heuristic + light prediction; strong motion/aim-pattern and "impossible value" checks (speed, phase,
-  aim-GCD consistency, autoclicker regularity).
-- **Verus** — aggressive *statistics* on aim and clicks: post-hit rotation, autoclicker variance, packet-order
-  ("badpackets").
-- **Intave** — strong rotation + movement consistency; sensitive to non-human aim curves and to client-only rotations
-  that don't move the body.
-- **Matrix** — heuristic combat/movement: reach, hitbox, killaura-pattern.
-
-**Detector families, and why a clean value flags:**
-1. **Movement prediction / physics replication** (Grim's offset engine; NCP survivalfly as thresholds). The AC derives
-   the set of positions your inputs *could* produce this tick; a position outside it flags. A too-exact over-speed, a
-   step with no attribute to justify it, full walking speed while using an item, a held position-packet that has
-   drifted too far behind where you really are — each is motion the replay can't reach.
-2. **Rotation checks.** (a) **GCD** (Grim AimProcessor, Vulcan, Verus): a real mouse turns in whole sensitivity-derived
-   counts, so every legit rotation delta is a multiple of that GCD (§2). A delta *off* the grid can only come from code.
-   (b) **Smoothness/pattern**: a *uniform* yaw-rate, a symmetric speed band, or a perfectly frozen lock on a moving
-   target is too even — real aim is right-skewed with microjitter and drift. (c) **Snap / aim-duration / cinematic**: an
-   instantaneous large turn (or an inhumanly *smooth* over-long one) reads as non-human.
-3. **Timing / CPS distribution + packet-order.** Symmetric or metronomic click gaps, zero press→release variance, a
-   constant CPS, or clicks that free-run with no input — all are statistical tells even when the *mean* CPS is human.
-   Packet-order checks catch an action sequence a vanilla client never emits.
-4. **Reach / hitbox.** An attack whose eye-ray-to-hitbox distance exceeds ~3 blocks, or that lands at a geometrically
-   impossible angle, is flagged regardless of how the rotation was produced.
-5. **Post / combat-order.** The rotation or motion *right after* a hit (Verus), hits landing before the attack cooldown
-   has recharged, or an attack packet out of order with its swing/rotation.
-6. **Setback & rubberband behaviour.** How you react to a server position-correction: a client that keeps acting on its
-   old (pre-setback) position, or doesn't accept the teleport, desyncs further and flags.
-7. **Transaction / ping (keepalive) latency.** The AC times a round-trip (Grim transactions, NCP keepalive) so it knows
-   your true latency; this both bounds "legitimate" staleness for (1) and makes *holding* one of those packets a direct
-   tell (and often a disconnect).
-
-**Why non-physical "clean" values are the giveaway** (the recurring theme): a perfect knockback fraction (post-KB motion
-exactly `0.40×` the push, or a perfect `0`), an exact block-face-centre click (`0.5, 0.5`), a uniform turn speed, or a
-full-strength hit landing mid-cooldown are all values the game's own randomness and your network jitter would never
-produce. The counters below all work the same way — put *human-plausible noise* back where the cheat removed it, or
-derive a value the AC itself would accept.
-
-**Detector → counter map:**
-
-| Detector family | What trips it | Counter in this skill |
-|---|---|---|
-| Movement prediction (Grim offset) | motion the replay can't reach; held position drifting past predicted | change the same inputs/attributes the AC models, not the output position (§10); packet-delay allowlist + Max-Desync age cap + flush-on-attack/correction (§11) |
-| Rotation GCD (Grim/Vulcan/Verus/Intave) | deltas off the sensitivity grid | snap the *wire* rotation to the grid, anchored on last-sent, carrying the sub-count remainder (§2, §3) |
-| Rotation smoothness/snap | uniform yaw-rate, frozen lock, instant snap, over-smooth | log-normal per-tick pace + AR(1) drift + rate-limited overshoot + ±70°/tick flick guard (§2) |
-| CPS / click distribution (NCP/Verus/Vulcan) | symmetric or metronomic gaps, zero hold-time variance, free-running clicks | log-normal gaps + OU CPS walk + repeat-gap + modelled press→release + micro-pauses + Click-Assist amplify-real-only (§6) |
-| Attack cooldown / post-combat (Verus) | full-strength or 0-KB hits during cooldown | charge gate: hold each click until `getAttackStrengthScale ≥ ~0.9` (§6) |
-| Reach / hitbox (all) | eye-ray-to-hitbox > ~3 blocks; impossible angle | backtrack's aim-ray dot gate + reach check (§7); hitbox expansion projected back to the real box edge (§7) |
-| Explicit velocity / KB / explosion (Grim/NCP) | post-KB motion a clean fraction of the server push | velocity precision jitter ±~3%, never a clean fraction (§7) |
-| Block-place direction/reach/fast (Grim/NCP) | no reachable sturdy face; exact face-centre hit-vec; place faster than vanilla | shared placer's sturdy-full-face + reach raytrace; in-plane hit-vec jitter; FastPlace left at plausible contexts (§7) |
-| Timer / morepackets (Grim timer, NCP) | more movement packets per second than real time allows | never speed the packet clock; only *delay* then release in order, Max-Desync capped (§11) |
-| Transaction / keepalive latency (Grim/NCP) | holding a ping / keepalive / teleport-confirm | allowlist those live; never queue them (§11) |
-| Look-vs-velocity (Grim; elytra/sprint) | moving a direction you aren't facing (silent aim, backward sprint, elytra) | movement correction re-picks WASD against the server yaw, sprints only when forward (§3); elytra sets rotation at tick-end so look == move (§4) |
-
-The practical upshot: **prediction ACs (Grim) are beaten by being physically consistent** — change what they model, not
-the result — while **heuristic ACs (NCP) are beaten by staying under the threshold**. A module that's safe on one can be
-instantly fatal on the other (NoSlow, §10, is the textbook case), which is why the per-module `anticheat_notes` and this
-map matter more than any single "legit mode" switch.
-
-**Three lessons from live testing (worth more than theory):**
-- **Some detectors can be reduced but not removed — spread them out instead.** Anti-knockback is the clearest: the
-  server applies the push *authoritatively*, so cancelling it moves you off the reconstructed position and a clean 100%
-  cancel flags **every** hit. Precision jitter isn't enough on a strict AC. The real lever is a **Chance** setting —
-  reduce only *some* hits (plus a partial %), so the signature reads as occasional lag, not a consistent reduction. A
-  low chance + a modest % flags far less than a perfect cancel; nothing makes it flag-free.
-- **Latency is a hard floor you cannot fake.** The "attacked a position too old" and "timer / micro-lag" families scale
-  directly with ping and barely fire at low ping; they are *not* a module bug to chase at 200 ms. Crucially, a
-  ping/timer *spoof* is self-defeating — inconsistent packet timing is the exact thing the timer detector measures, so
-  "faking ping to look better" makes it worse. Validate at real ping before touching code.
-- **Keep the sent rotation on target *and* near the body.** A silent aura that fires while its eased rotation still
-  lags the target, or that lets the server yaw swing far from where it walks, trips the "attacked out of sight" and
-  "moved incorrectly" checks respectively. Gate actions on the wire rotation (§3) and cap the aim FOV / track fast
-  enough that the two stay close.
+A candidate strategy must respect the target server's authoritative state. Similar-looking motion, random delays,
+a local field/attribute change or a local warning's silence does not establish a bypass. Label source-confirmed
+constraints, simulation checks, bytecode-hook verification and actual server-issued outcomes separately. Server
+acceptance remains unverified unless a matching implementation/version/configuration was observed in use.
 
 ---
 
-## 10. Movement physics & bypass
+## 10. Movement physics and input consistency
 
-Every movement module is a lie told *in the language of vanilla physics* — so the physics is the foundation. Reproduce
-it exactly (and per engine version; the constants drift), because a prediction AC runs the same integration and compares.
+Movement automation needs the target engine's actual physics, permissions and state. These commonly encountered
+constants illustrate a model; verify its order, attributes, effects and fluid rules against the supported version.
+A client-only attribute edit is not proof that a server or prediction check observes the same value.
 
 **Vanilla per-tick integration** (player, one tick): apply input acceleration to velocity → **move** with a per-axis
 collision sweep (the same Y-then-X-then-Z sweep the prediction sims use, §4) → apply drag/friction to set up next tick →
@@ -684,36 +669,59 @@ apply gravity. The constants that matter:
 **The modules, and what each must respect to survive prediction:**
 - **Step** — add a **transient `STEP_HEIGHT` attribute modifier** of `(height − base)` while on the ground (the vanilla
   mount/effect mechanism: `addTransientModifier(ADD_VALUE)`), removed off-ground and on disable; never touch the base.
-  Survives Grim precisely *because Grim reads the attribute* and simulates the taller step, so your resulting position is
-  still predicted — a teleport-up (`setPos` to the higher block) would diverge from the replay and flag. **Ground-gate
-  it** so it can't climb mid-air, which no step could produce.
+  A transient client attribute alone does not establish server permission: check whether the server shares and
+  accepts that value. Ground-gate the intended step and never replace it with an unexplained position jump.
 - **Speed / Bhop** — a **staged launch** on the jump tick (take the legal `0.2` sprint-jump boost) then let per-tick
   friction decay carry the momentum, re-launching each jump. Keep peak horizontal **≤ what accel+friction can reach**:
   a sustained flat over-speed is the classic survivalfly/speed flag, whereas a decaying, re-launched arc reads as real
-  momentum to a threshold AC and is predicted by Grim.
+  momentum to a threshold AC but still requires validation against server-authoritative acceleration and collisions.
 - **Strafe / air-accel** — rewrite the *air* input each tick so you accelerate toward your move vector, respecting the
   **0.02 air-accel cap** per tick; never add velocity the input itself couldn't.
 - **LongJump** — a slipperiness-aware launch (exploit low-friction surfaces), but horizontal must still decay by the
   block's friction each tick and the launch impulse must be one a jump could legally produce.
 - **NoSlow** — a **`modifyInput` redirect** that skips *only* the `0.2` use-item input scale (`NoSlow.active()` read by a
   movement-input mixin), leaving sneak and every other modifier. **Honest caveat:** a prediction AC *models* that `0.2`
-  slowdown, so walking full speed while using an item diverges from its prediction — NoSlow is **high-risk on Grim** and
-  survives only where the AC doesn't model use-item slowdown (older NCP configs). This is the cleanest illustration of
+  slowdown, so walking full speed while using an item diverges from its prediction — NoSlow conflicts with checks that model use-item slowdown. Do not label skipping the multiplier a validated
+  bypass merely because the rest of the movement code stays unchanged. This is the cleanest illustration of
   the §9 split: surgical and "legit-looking," yet fatal on the prediction AC precisely because it's physically
   inconsistent.
 - **KeepSprint / OmniSprint** — distinguish a valid retained latch from forcing a new start after vanilla cancelled
   it. Entry and continuation predicates differ by movement mode/version; forward+strafe can retain authorized sprint
   flight. Avoid repeated direct reassertion and competing sprint owners. Backward/no-forward boosts require separate
-  justification; setting a vanilla field alone does not establish valid movement or server acceptance. See
-  [flight mining](references/flight-mining.md) for a bounded key press followed by a retained latch.
+  justification; setting a vanilla field alone does not establish valid movement or server acceptance. Use a bounded ordinary key press, observe the actual latch and release only the synthetic key; see below.
 - **Velocity (anti-KB)** — scale `deltaMovement` after the server applies knockback, with **precision jitter** so the
   result is never a clean fraction of the push (§7). Independent H/V percentages read as partial, legit-looking reduction
   rather than immunity.
 
-**The universal rule:** a prediction AC accepts any motion *some legal input could have produced* and flags motion no
-input could — so a movement cheat survives it only by changing the **inputs/attributes the AC also reads** (sprint flag,
-step attribute, jump, input vector), never by writing an output position those inputs don't justify. Heuristic ACs
-instead flag raw magnitudes, so there you tune the numbers under the threshold. Design for whichever you'll face.
+**Consistency boundary:** input-driven movement is easier to compare with an unmodified baseline than arbitrary
+position writes, but the server must actually authorize the relevant abilities/attributes. Packet-only observations,
+world state, permissions and detector configuration all matter. Numerical thresholds and added randomness do not
+turn unsupported movement into a demonstrated bypass.
+
+### Input-state transitions and optional authorized flight
+
+The same controller discipline applies to ground routes, swimming, gliding and server-authorized powered flight:
+separate entry preference, retained intent, actual game state and physical key state. Predict the final normalized
+input after every producer/veto, including diagonals, effects, current momentum and realizable braking. Preserve the
+target version's integration/collision order and server-provided speeds; independent clear horizontal/vertical rays
+do not establish clearance for a simultaneous full-body move under an overhang.
+
+For authorized flight only, a tapped sprint can retain its latch while valid forward/strafe and altitude input
+continue. A heading threshold used for entry need not be a continuation predicate. Count stable entry once per input
+tick, adopt a valid manual latch, release the synthetic key after observing vanilla sprint, and back off after a
+rejected start. Never force the field true repeatedly after the game cancels it. Release for real braking, unsafe
+clearance, no forward input, lost permission, menus or recovery; arbitrate generic sprint and task-specific producers.
+
+Synthetic jump pulses can accidentally exercise the manual double-tap flight toggle. Suppress only the task-owned
+timer accumulation while already-authorized flight is active, preserving manual double jump outside that scope.
+Verify that narrow hook in load-time and attach builds. Do not compensate for a missing hook by granting permission,
+writing velocity or inventing extra movement packets. Flight acceleration differs from the ground sprint modifier;
+inspect the supported version rather than transplant its multiplier. Longer valid passes and tangent-continuous
+handoffs reduce gratuitous state churn, but never justify unsafe speed retention.
+
+Probe retained-state stability over turning/altitude changes, unsafe immediate release, rejected starts/cooldowns,
+repeated-query idempotence, modified speeds/effects, fixtures, concave corners and return from outside the route.
+Controller tuning values are examples to measure, not anticheat thresholds.
 
 ---
 
@@ -723,9 +731,9 @@ Backtrack, FakeLag, Blink, KnockbackDelay and Velocity-delay all sit on one smal
 client's own connection and lets them go later, in order**. Getting its architecture right is what keeps "delay" from
 becoming "desync-until-flagged" or "timed-out."
 
-**Read [packet lifecycle](references/packet-lifecycle.md) when implementing or auditing this service.** The rules of
-thumb below need connection/world generations, explicit control decisions and version-specific tick boundaries;
-a basic concurrent queue and a zero-delay exemption are not sufficient.
+The contracts below require connection/world generations, explicit control decisions and version-specific tick
+boundaries. A concurrent queue and a zero-delay exemption are insufficient. Detector-facing experiments belong in
+the [anticheat reference](references/anticheat-bypass.md#packet-order-and-corrections).
 
 **Queues.** Three lock-free queues (concurrent, because incoming is decided on the Netty thread and released on the main
 thread): `incoming` (everything KnockbackDelay holds, plus whatever arrived behind it — one global line), `entityHeld`
@@ -772,13 +780,30 @@ order, so BackTrack's frozen target doesn't teleport relative to the rest of the
 position can never cost you the hit you're about to land — the "flush instantly when your attack would hurt them" rule),
 **taking knockback** (your real position jumped), and **any server position-correction / teleport** (tracked as
 `lastPositionCorrection` on the network thread the moment a `ClientboundPlayerPosition` arrives). Modules also cap a
-held packet's **age** (a Max-Desync setting — release once the server is > N ms behind where you really are) so movement
-never desyncs far enough for the prediction/timer detectors (§9) to bite.
+held packet's **age** (a Max-Desync setting — release once the server is > N ms behind where you really are) to bound retained state; validate against the target protocol and detector configuration (§9).
 
 **Hazards the design avoids:** holding a keep-alive → kick; holding a block/use → inventory/block desync and rejected
-actions; holding past a setback → acting on a stale position (the setback detector, §9#6); speeding the clock instead of
+actions; holding past a setback → acting on a stale position (the correction-validation discussion in §9); speeding the clock instead of
 delaying → a timer flag; touching the *integrated server's* connection → guard every entry on "is this the client's own
 play-state game connection." Delay only, release in order, flush on anything that would fight the server.
+
+### Lifecycle races, replay and observability
+
+A producer may pass a connection check, pause across disconnect cleanup and enqueue after the queue was cleared.
+Invalidate generations and serialize or atomically revalidate enqueue/dispatch against lifecycle changes. Reset
+sequence cutoffs, correction and sent-state metadata with the session. Publish owner and rule consistently; an
+owner-checked release alone does not synchronize in-flight producers.
+
+Represent `HOLD`, `ORDERED_PASS`, `FLUSH_BEFORE_PASS` and semantically safe `IMMEDIATE_CONTROL` explicitly. Preserve
+protocol batches, listener/world barriers, write callbacks and flush semantics; a discarded write needs completion
+or cancellation rather than an unresolved promise. Bound global age, count and retained bytes independently of
+optional auto-release toggles. Multiple incoming lines need a sequence-based merge, not timestamp guesses.
+
+Count attempted, queued, dispatched and dropped packets separately; replay visiting the send hook again is not a
+second actual dispatch. Scope observation to connection/session and refresh baselines on ownership changes. Test
+keepalive behind an indefinite hold, same-listener world replacement, a producer paused over disconnect, tick-end
+markers, same-time release cutoffs, nested sends, callback completion, overflow and correction followed by movement.
+A probe reproducing today's defect is audit evidence; acceptance tests should assert the repaired invariant.
 
 ---
 

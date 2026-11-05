@@ -8,7 +8,7 @@ description: >-
   detection-evasion / anti-forensics material. Brand-neutral and framework-agnostic.
 ---
 
-# SilentKit · Runtime
+# JVM runtime and injection
 
 How a ghost client is loaded, hot-reloaded, and kept compatible across engine versions — using **standard,
 well-documented JVM mechanisms** (the same ones debuggers, profilers, APM agents, and hot-reload frameworks use).
@@ -20,9 +20,9 @@ making a load *undetectable* rather than about *loading or reloading* code, it's
 GC-hygiene material below is about not leaking memory and leaving the process runnable, nothing more. Module-level game
 techniques live in `silentkit-modules`; the UI layer in `silentkit-interface`.
 
-For concrete rules of thumb and fault cases, read [attach lifecycle](references/attach-lifecycle.md) when working on
-startup acknowledgement, missed hooks, partial restoration, stale agent classes, companion-jar paths or archive
-limits. These are recommendations from review/probes, not a claim that every implementation already satisfies them.
+Attach failure handling, hook coverage, targeting, payload integrity and teardown contracts are integrated below.
+Use them as design/validation requirements, not a claim that every implementation already satisfies them. Module
+interaction and server-facing validation belong in the modules skill's one anticheat reference.
 
 ---
 
@@ -59,10 +59,30 @@ Its job, in order:
 Pass the agent a small options string (`jar=<path-or-handle>;status=<file>`) and have it write a **status file** the
 injector polls, so the external injector UI can report success/failure without a socket.
 
-**Readiness tip:** returning from `loadAgent` or scheduling `bridge.start()` is not `READY`. Acknowledge from the
-successful game-thread/resource completion boundary, report asynchronous failures, and roll back partial startup.
-A timeout must not become a success message. Give each attempt an ID and explicit terminal status rather than
-parsing a “patched classes” log. See [attach lifecycle](references/attach-lifecycle.md).
+### Target selection and completion contract
+
+- A process command line/classpath is a discovery hint, not proof of a client. A dedicated server can have a matching
+  game version and accept an agent while no game UI exists there. Probe already loaded client-only classes and the
+  actual game loader/version before installing the payload. Keep the discovery probe separate from initialization.
+- Validate an explicitly supplied PID too. When several compatible clients exist, return identifying choices rather
+  than selecting the first. Compare embedded payload build metadata with the probed game/protocol and supported
+  loader, not a renamed jar filename. Reject ambiguous/unsupported versions instead of guessing a nearby mapping.
+- Preflight Java/classfile level, instrumentation capabilities, target class modifiability and permanent bridge ABI.
+  Resolve companion probe/boot jars relative to the injector code source, not CWD or an arbitrary payload directory.
+  Redact launch credentials in candidate/error output as well as the selected-process happy path.
+- `loadAgent` returning, a class resolving or a static singleton being touched proves only that stage. The real
+  client may still lack hooks, initialized systems or resources. Do not swallow a failed entry point and continue
+  toward success. Start the engine/thread work in a state that prevents hooks calling uninitialized services; stage
+  mandatory patches and activation explicitly rather than assuming one order works for every architecture.
+- Use an attempt ID/generation and phases such as `VALIDATING → PREPARING → PATCHING → STARTING → READY`, with terminal
+  `FAILED`, `CANCELLED` or `RESTART_REQUIRED`. Clear or supersede stale acknowledgements. Publish complete snapshots
+  atomically if status files are used, and tolerate incomplete reads without inventing terminal results.
+- Publish `READY` only after required hooks, actual game-thread initialization and resource completion. Catch failures
+  on those asynchronous boundaries, invalidate queued callbacks for cancelled generations, and run idempotent rollback.
+  Keep bounded sanitized diagnostics for the current attempt rather than an ever-growing static success log.
+- Bound the whole operation and its phases. Polling only after a blocking attach returns does not bound attach itself;
+  use an appropriate worker/process boundary where a blocking operation cannot be cancelled safely. Timeout is not
+  success and should not release a still-running attempt to initialize later without generation checks.
 
 ### 1b. Bootstrap handoff (one code path for dev and production)
 
@@ -74,7 +94,8 @@ handoff state and pins agent classes in the system loader; it is not the preferr
 
 **Reload tip:** loading a newer jar with the same agent class name does not replace a class already defined by the
 system loader. Keep a versioned bootstrap/bridge stable and load the engine/implementation fresh per attempt too,
-not just the client classes. Track bootstrap ABI, engine build ID and payload hash independently.
+not just the client classes. Track bootstrap ABI, engine build ID, payload hash and actual game version independently.
+A compatible implementation can refresh; an incompatible permanent bootstrap requires a clear restart outcome.
 
 ---
 
@@ -89,6 +110,18 @@ not just the client classes. Track bootstrap ABI, engine build ID and payload ha
 - **Linking order** — define a class only when first needed (lazy `findClass`); resolve dependencies through the same
   loader so your module graph is self-consistent. Watch for classes that must be defined by a *specific* loader (the
   one the host/engine resolves against) and route those accordingly instead of your child loader.
+
+### Verify the payload actually defined
+
+An adjacent bundle's digest does not authenticate an independently selected loose jar. Bind integrity/provenance
+checks to the exact bytes passed to the implementation loader, whether they came from a local build, loose payload
+or embedded bundle. A local digest detects accidental mismatch; it is not an authenticated signature. For shipped
+delivery, retain expected digest/authenticated-encryption and allowed-origin checks appropriate to the distribution.
+
+Parse archive headers/offsets defensively. Bound expanded entry size, total expanded bytes and entry count in addition
+to compressed/download size, reject duplicate/unsafe names, and require build/ABI metadata before defining classes.
+Reject mismatched/unknown payloads rather than silently skipping verification when a preferred bundle is absent.
+Test explicit loose-jar overrides, bundle/payload mismatch, truncation, duplicates and oversized expansion.
 
 ---
 
@@ -124,9 +157,8 @@ reloads:
 - **Parent = the game's loader, not the app/system loader.** The child's parent must be whatever loaded the engine
   (Minecraft), so the client resolves engine + library classes normally. Find it at inject time by walking up from a
   known engine class's `getClassLoader()` (e.g. `Class.forName("net.minecraft.client.Minecraft", false, systemLoader)`
-  across candidate loaders — a launcher-agnostic agent probes for the loader that actually holds the Mojang-named
-  classes, which works on vanilla / Fabric / Quilt / Forge / NeoForge / Lunar / Feather alike as long as names aren't
-  obfuscated).
+  across candidate loaders). Treat loader/name compatibility as something to probe and test for each supported
+  launcher, not an automatic consequence of a familiar class name. Use non-initializing probes where possible.
 - **`registerAsParallelCapable()`** in the child loader's static init — the game loads classes on many threads; a
   non-parallel loader serializes (and can deadlock) under that.
 - **Define classes lazily, transform on define.** Don't eagerly define the whole jar. Override `findClass` to define
@@ -176,8 +208,9 @@ Two ways to insert hooks (tick/render/packet) into engine methods:
   Such an engine supports what the client actually uses — `@Inject` (HEAD/RETURN/TAIL/INVOKE with ordinal+shift),
   `@Shadow`, `@Accessor`, duck interfaces, and mixin-added fields — by turning each mixin's handlers into **statics in a
   hidden class**, accessors/ducks into `invokedynamic`, and added fields into a **side table** keyed by instance (you
-  can't add a real field to a loaded class). Keep the **original bytes** of every retransformed class to restore on
-  uninject. The client code just declares mixins; only the engine touches bytecode.
+  can't add a real field to a loaded class). Keep a restoration plan consistent with JVM retransformation semantics
+  and other installed transformers; blindly redefining saved originals can erase another agent's changes. The client
+  code declares mixins; the engine performs the bytecode work.
 - **Load-time ASM/Javassist transforms** (a `ClassFileTransformer` that edits target methods at runtime). More work and
   more fragile, but needed when no mixin framework is available or when you must support obfuscated targets.
 
@@ -185,9 +218,13 @@ Keep hooks thin: fire an event, let modules handle it. Version-branch only the f
 differ (see §6) — the common case is that one hook body serves every version and only the `@At` target or a single
 field access changes.
 
-**Coverage tip:** verifier-valid bytes can contain zero intended hooks. Record expected match counts, honor required
-anchors and fail/roll back on missing required targets or transformer errors. Separate planned, inserted and
-installed coverage; a returning `retransformClasses` call alone proves none of those. Test late-loaded targets too.
+**Required-hook manifest and fault behavior.** For each supported version, record target class, method descriptor,
+instruction anchor, expected minimum/maximum matches, required/optional status and dependent features. Verify the
+named hook at the intended method, including late-loaded targets; the presence of any `invokedynamic` is too weak.
+A returning transformer/retransform call or valid classfile may still leave original code or zero intended hooks.
+Propagate required generation/patch/verification failures into attempt status and rollback rather than diagnostic-only
+lists. Optional missing integrations should disable their dependent feature explicitly. Keep bounded class/method/
+anchor diagnostics; class dumps are an opt-in debugging artifact tied to the exact payload hash.
 
 ---
 
@@ -239,6 +276,18 @@ final class Compat {
 classes your hooks and facade touch, and only the methods that actually changed need a `//?` branch. Prefer published
 name-mapping tables over re-decompiling when you only need the renamed member.
 
+**Wrapper/mapping layer lessons.** A runtime wrapper catalogue can resolve class/member names across naming schemes,
+but version detection must not rely on broad substring matches or an incomplete table that buckets a new release into
+an older protocol. Prefer exact parsed versions and authoritative metadata, then structural checks as bounded fallback.
+Validate resolved methods by descriptor, static/instance shape and defining loader; fail clearly for a missing required
+wrapper. Inserted callback signatures must agree with the transformed operand stack and argument order. Distinguish
+"mapped member exists" from "required callback installed" and test both with actual supported classfiles.
+
+API shape and network semantics can change independently: an arm-swing animation may no longer notify the server,
+a use packet may carry its own rotation, a boolean can change meaning, or a new tick marker can split a batch. Inspect
+the actual method body/packet path before replacing a renamed call with a superficially similar one. Keep the minimal
+version-specific action semantics behind the facade and exercise both load-time and attach-time hook paths.
+
 ---
 
 ## 7. Teardown checklist (leave the process as you found it)
@@ -256,8 +305,19 @@ name-mapping tables over re-decompiling when you only need the renamed member.
 If restoring a changed game class fails, report incomplete restoration and retain a safe disabled bridge or require
 restart; do not clear hook state and announce a clean uninject regardless. Linked/unresolved call sites may still
 need the old runtime. Block reinjection into that incomplete state. Renderer/resource reloads need a safe game-thread
-boundary: a full reload mid-world-render can race framebuffers. Details and fault probes:
-[attach lifecycle](references/attach-lifecycle.md).
+boundary: a full reload mid-world-render can race framebuffers. Remove owned render pipelines before their resources,
+and rebuild targets through the supported resize/reload path where necessary.
+
+Maintain a cleanup stack from the first acquired resource, including partially initialized attempts whose active
+flag was never set. Aggregate failures and continue independent cleanup steps. Invalidate queued startup/resource
+callbacks with the attempt generation before stopping workers or releasing keys.
+
+Disabled/stopped and fully restored are different states. If a changed class cannot be restored, do not close the
+runtime that residual hooks still need or advertise a clean uninject. Linked constant call sites can retain old
+handles; unresolved ones may still need registry bytes. Retain a safe disabled bridge where appropriate, publish
+`RESTART_REQUIRED` and block reinjection into incomplete restoration. Dropping references, loader close and GC requests
+do not prove immediate collection or memory erasure. Check surviving threads, listeners, lambdas, side tables and
+method handles as retained roots across repeated reloads.
 
 Clean teardown is what makes repeated hot-reload viable, and it's what lets an uninject return the process to a plain
 unmodified game — it's good engineering regardless of context, and it's the one and only correct shutdown path shared
@@ -300,7 +360,7 @@ tight edit→build→see loop against a *running* game:
   move-packet hook (the *ground truth*, after every other system has written the rotation) — logging `rot` versus the
   heading implied by your velocity (`atan2(-vx, vz)`) is exactly how you catch the classic "look doesn't match
   movement" flag (elytra, silent aim, strafe) before a server does.
-- **System-property toggles** for throwaway experiments without a settings row: e.g. a packet-log that prints each
+- **System-property toggles** for throwaway experiments without a settings row: e.g. a packet-log that summarizes each
   delayed packet and how long it was held (validates §11 ordering/age), a look-log that prints per-frame view-vs-target
   (measures turn smoothness), render-self flags (draw your own ESP / nametag / silent rotation in third person so you can
   *see* where the server thinks you're aiming), and a "treat a dummy entity as a player" flag to test player-only visuals
@@ -326,6 +386,22 @@ lands against the sim's predicted landing. A match validates the integrator's co
 divergence localises the wrong constant (a drag, a gravity, an axis-order bug) because the input state was fixed. The
 same approach tests the fall/pearl/wind sims — fix the start state, compare predicted vs observed — and it's repeatable
 precisely because the sims never mutate world or entity state.
+
+### Validation layers and reproducible fault cases
+
+1. Use generated fixture classes, fake instrumentation, temporary loaders and clocks for missing anchors, transform
+   failure, partial restoration, stale parent definitions, incompatible bridge ABI, nested/cancelled attempts, late
+   resource failure, a cleanup step throwing, missing terminal status and malformed archives. A test reproducing the
+   old defect is audit evidence; convert it to the desired invariant when repairing the implementation.
+2. Transform the real supported game classfiles with the production engine. Check exact named hooks, descriptors,
+   anchors and counts, and verify the result. Include incoming message/input hooks and both already-loaded and
+   late-loaded classes. Verify the shipped artifact after obfuscation/packaging, not only intermediate debug classes.
+3. Exercise target discovery with a dedicated server, incompatible client, multiple clients, explicit wrong PID,
+   renamed payload, stale status and absolute-path invocation from an unrelated working directory. A probe must not
+   initialize or modify unrelated targets merely to classify them.
+4. When authorized, verify the live `inject → use feature → uninject → reinject` loop, including resources, stale
+   callbacks, workers/sockets and renderer compatibility. Compilation, fixture verification, an attach acknowledgement
+   and a live round trip establish different facts; none establishes undetectability or blanket launcher support.
 
 ---
 

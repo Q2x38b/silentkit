@@ -1,7 +1,7 @@
 # SilentKit
 
-**A distilled toolkit for ghost clients.** Three Agent Skills for building Minecraft ghost clients with real
-bypasses: behaviour, interface, and loader.
+**A distilled toolkit for ghost clients.** Three Agent Skills covering behaviour, interface, and loader, with explicit
+validation of detector-facing strategies.
 
 ## Install
 
@@ -33,15 +33,15 @@ Each `skills/<name>/` directory is a self-contained skill (a `SKILL.md` with YAM
 `references/`). Drop a directory into your agent's skills folder, or read the `SKILL.md` directly as a design
 reference. Nothing here is tied to a specific project, brand, or codebase — API names are illustrative.
 
-The guides also link focused rules of thumb for [flight mining](skills/silentkit-modules/references/flight-mining.md),
-[automation state and merchant menus](skills/silentkit-modules/references/automation-state.md),
-[aim/click troubleshooting](skills/silentkit-modules/references/aim-and-click-validation.md),
-[packet lifecycle](skills/silentkit-modules/references/packet-lifecycle.md),
-[staff evidence and mining statistics](skills/silentkit-modules/references/staff-and-statistics.md), and
-[attach/reload failure handling](skills/silentkit-runtime/references/attach-lifecycle.md).
-Read these when the task calls for them; they expand the existing toolkit. Source review, deterministic probes,
-bytecode verification and live server observations are different evidence, and numerical examples are tuning aids
-rather than universal bypass guarantees.
+General engineering guidance is consolidated into the [modules skill](skills/silentkit-modules/SKILL.md) and
+[runtime skill](skills/silentkit-runtime/SKILL.md). The single detailed
+[anticheat bypass and validation reference](skills/silentkit-modules/references/anticheat-bypass.md) covers click
+validation, rotation, movement, reach, packet order and corrections. The queryable
+[module catalogue](skills/silentkit-modules/references/modules.json) includes aliases, prerequisites, concrete
+`bypass_tips`, known failure triggers and target-specific validation scenarios.
+
+Source review, deterministic tests, hook verification and live server observations establish different facts.
+Numerical examples are tuning aids; neither randomness nor the absence of local alerts guarantees acceptance.
 
 ## Scope & intent
 
