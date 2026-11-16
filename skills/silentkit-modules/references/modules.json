@@ -130,7 +130,7 @@
     "longjump": "slipperiness-aware launch, but horizontal still decays by the block friction each tick and the impulse must be one a jump could legally produce",
     "noslow": "Skipping the use-item multiplier can disagree with server-authoritative movement. Keep unrelated modifiers intact but validate the changed trajectory; no universal safe mode is implied.",
     "keepsprint_omnisprint": "Distinguish entry from continuation. Authorized modern sprint flight can retain forward+strafe and altitude input after a brief vanilla sprint press. Do not repeatedly force isSprinting after cancellation; coordinate owners and release for unsafe/non-forward input. A vanilla field alone does not establish server acceptance.",
-    "velocity": "scale deltaMovement after the server applies KB, with precision jitter so the result is never a clean fraction of the push (see modules.Velocity)",
+    "velocity": "Any local knockback scaling changes the server-issued impulse. Chance or precision jitter does not establish a supported trajectory; measure authoritative impulses and collision outcomes (see modules.Velocity).",
     "authorized_flight": "Read server flying speed and actual version physics; checked 26.2/26.3 sprint flight doubles horizontal input acceleration. Predict diagonal boosted input, full-body braking and combined vertical clearance. Prevent automated ascent pulses from accumulating the manual flight-double-tap timer while the bot owns active authorized flight."
    },
    "universal_rule": "Reproduce final input and authoritative state in the supported version; local attribute/ability changes, plausible magnitudes or stochastic variation do not establish server acceptance.",
@@ -4557,7 +4557,7 @@
    "category": "misc",
    "risk": "none",
    "summary": "Measures your real ping/jitter and auto-tunes timing-sensitive modules so they stay inside the server's lag-comp window and back off on a spike.",
-   "technique": "A shared network-conditions monitor (smoothed ping EMA + jitter + a spike flag, from the keep-alive/transaction RTT) exposes a hold budget = lag-comp-window(~150-200ms) - ping - jitter. Packet-delay modules (KnockbackDelay/BackTrack/FakeLag) cap their hold to it and pause on a spike; the aura/clicker skip combat hits during a spike. Lives in a global Humanization hub with a master realism dial.",
+   "technique": "A shared network-conditions monitor exposes measured RTT, jitter and spikes with source/age. Consumers can back off on instability. Any compensation-window or hold budget requires verified server timestamp semantics; a presumed window minus RTT is not a universal allowance.",
    "hook": "tick + outgoing packet rule",
    "anticheat_notes": "Measure real RTT/jitter and observed spikes; do not spoof keepalive timing or assume a universal lag-compensation allowance. Back off or pause stale actions.",
    "settings": [
