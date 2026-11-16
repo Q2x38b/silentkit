@@ -14,6 +14,9 @@ A build reference for the behaviour layer of a ghost client. It is deliberately 
 *patterns and math*, not any one project's code. API names are illustrative (modern Minecraft-style), but the ideas
 port to any game/engine with a tick loop, an input pipeline, and an outgoing-packet path.
 
+Validate catalogue edits with `python3 scripts/validate_catalogue.py` from this skill directory; the local
+`references/modules.schema.json` defines its format. Stable IDs identify capabilities, not Java class names.
+
 The companion file `references/modules.json` is a structured catalogue of every module and technique below — query it
 instead of re-reading prose when you need "which modules exist / what does X do / what signals does Y use."
 
@@ -94,14 +97,15 @@ features should add no gameplay traffic; audit optional commands, input changes 
 ## 2. The humanization engine
 
 The shared realism layer. Prefer common time, ownership and output contracts over independent ad-hoc controllers;
-a shared statistical fingerprint alone does not establish lower detectability.
+a shared statistical fingerprint alone does not establish lower detectability. The controller below is one design
+example: distributions, amplitudes, turn ceilings and timing constants need measured support in the target input path.
 
 **Primitives (`Human`, stateless, thread-safe via a thread-local RNG):**
 - `range(min,max)`, `gaussian(mean,sd[,clamp])`, `jitter(spread)` (gaussian around 0), `chance(percent)`.
-- `logNormal(sigma,min,max)` — a right-skewed multiplier centred on 1 (`clamp(exp(N(0,sigma)),min,max)`). Use it for
-  per-tick turn pace and any "speed/interval" that a symmetric uniform or gaussian would make too even (both are tells).
+- `logNormal(sigma,min,max)` — a right-skewed multiplier with median 1 (`clamp(exp(N(0,sigma)),min,max)`). Use it for
+  optional turn-pace experiments; neither a symmetric distribution nor a log-normal distribution establishes a detector outcome.
 - `reactionMs(min,max)` — a **triangular** draw (average of two uniforms), mid-biased, so most reactions cluster and
-  the extremes are rare. A flat uniform reaction time is itself a tell.
+  the extremes are rare. This is a chosen model, not a universal measurement of human reaction times.
 - `smoothstep(x)` — Hermite `x·x·(3−2x)` ease for ramps.
 - `approach(cur,target,rate,dt)` — one step of a **frame-rate-independent** exponential approach, moving
   `1 − e^(−rate·dt)` of the remaining distance. Use this everywhere instead of `cur += (target−cur)·k`, which is
@@ -118,20 +122,20 @@ appears" is implemented uniformly.
 **Eased rotator (`HumanAim`, stateful).** The rotation arm of the engine; each aiming module owns one and `reset()`s it
 when it stops aiming. One `advance()` per tick (or frame) produces a step with, in order:
 - **Hand drift** — an AR(1)-smoothed low-frequency micro-wander (`drift = drift·0.92 + jitter(0.04)`), amplitude a
-  tenth of a degree, added to the target. A rotation that sits *perfectly frozen* on a moving target is flaggable; this
-  keeps it alive without ever costing a hit (far inside the hitbox).
+  tenth of a degree in this example, added to the target. Drift can move the final ray outside a small or distant
+  hitbox; bound the final point and revalidate the action rather than assuming noise is harmless.
 - **Ease-in ramp** over the first ~3 ticks (`min(1, 0.4 + ticks·0.2)`).
 - **Exponential approach** of the remaining delta (`frac = 1 − e^(−speed/28)`).
 - **Ease-out settle** with a *firm floor* (`clamp(|delta|/12, 0.34, 1)`) so the last couple of degrees close in a tick
   or two instead of floating forever — smooth *and* snappy.
 - **Per-tick pace — a right-skewed log-normal**, `pace = clamp(exp(N(0,0.14)), 0.72, 1.6)` (median 1), so the turn
-  never advances the exact same fraction twice. This replaces the old symmetric uniform `×[0.85,1.15]` band: real human
-  turn speeds are right-skewed (most a touch slow, the odd fast one), and a flat band reads as too even to a detector.
+  varies its response. This is an alternative to a symmetric uniform `×[0.85,1.15]` band, not evidence that either
+  distribution matches a particular player or defeats a detector.
   Optional positional jitter while turning (`jitter(0.12)` on yaw, `0.08` on pitch) above 1.5° of remaining delta.
 - **Overshoot** — a turn over ~25° flicks `min(|delta|·0.12, 6)°` past the target, then the offset decays (`×0.55`/tick)
   and the normal pull settles back. Rate-limited (~500 ms) so it isn't on every micro-correction.
-- **Flick guard** — a hard `±70°/tick` ceiling: no matter how high aim speed is set, never turn more in one tick than a
-  hand plausibly could.
+- **Flick guard** — an example `±70°/tick` controller ceiling. Treat it as a tuning parameter at the stated cadence,
+  not a universal human limit or server threshold; measure final speed and acceleration.
 - **Whole-count emission** for both server-path and camera contributions (see the correction below).
 
 Two entry points: `camera(...)` eases from the *live* camera (so your own mouse still counts and the view interpolates
@@ -139,9 +143,10 @@ smoothly) and `silent(...)` seeds from itself/the camera, for the server rotatio
 server sees on the grid** — see the correction in rule 5 below; a camera aim-assist whose rotations reach the server is
 *not* exempt.
 
-**The mouse-GCD rule (the key anti-detection realism).** A real mouse turns only in whole "counts," so every rotation
-the vanilla client sends is a multiple of a sensitivity-derived step. The engine mirrors the exact vanilla math:
-`f = sens·0.6 + 0.2`, then `gcd = f³ · 1.2` **degrees per count**. A detector that reconstructs this GCD in an aim-analysis pipeline flags any rotation delta not on the grid. Rules:
+**Mouse-count output contract (verify the input path).** For the sensitivity transform used in this example,
+`f = sens·0.6 + 0.2`, then `gcd = f³ · 1.2` degrees per count. Check the target version's actual mouse input,
+smoothing, sensitivity, clamping and floating-point serialization before adopting that formula or asserting exact
+multiples on the wire. The following is a controller contract, not proof of a detector's implementation:
 1. Snap the rotation that goes *on the wire* to the grid, anchored on the last sent value:
    `snapped = base + round((target−base)/gcd)·gcd`.
 2. If a snapped step rounds to 0 but the target is still ≥1 count away, take the smallest grid step that *progresses*
@@ -315,7 +320,7 @@ target that ducked behind cover faster than one they've never seen).
 path and protocol still constrain dispatch. The following rhythm/fatigue models are candidates to compare with a
 relevant measured baseline; no distribution establishes human origin or server acceptance:
 - **Lognormal (right-skewed) gaps:** `gap ·= exp(k·gaussian)` (k≈0.14). Most gaps near the mean, the odd long one,
-  almost never an impossibly short one. A symmetric gaussian around the mean is itself a tell.
+  with a positive minimum chosen for the actual action path. Distribution choice alone does not establish acceptance.
 - **Repeat-gap tendency:** ~18% of the time, reuse the previous interval ±a few ms. Hands fall into a cadence; they
   don't re-roll every click.
 - **Mean-reverting (Ornstein–Uhlenbeck) CPS walk** toward a target that drifts through the range and re-rolls
@@ -329,7 +334,7 @@ relevant measured baseline; no distribution establishes human origin or server a
   charge, focus, ownership and input gates as the first; cancel it when those prerequisites fail. Preserve configured
   CPS meaning and measure consumed clicks instead of assuming scheduled clicks were all executed.
 - **Modelled press→release hold window** per click — an instantaneous click has zero press-time variance, which is a
-  tell on servers that see both edges.
+  possible difference only if those edges are actually observable in the protocol; verify that before modelling them.
 - **Style rhythms** that still average to the CPS: *Jitter* (steady, spread from the lognormal), *Butterfly* (quick
   pairs then a longer gap), *Drag* (a fast run of 4–8 then a pause).
 - **Charge gate (optional):** hold each click until the attack has recharged — `getAttackStrengthScale ≥ a per-click
@@ -396,7 +401,7 @@ first. Refinements shared across FakeLag / Blink / KnockbackDelay / BackTrack:
     what prevents the "placing into air / on fire" rejected-packet bug.
   - **Hit-vec jitter.** The clicked point is the neighbour face's centre plus `jitter(0.18)` (clamped `±0.4`) on the two
     **in-plane** axes only — never along the face normal — kept well inside the face so the block still places and stays
-    in reach. Without it every placement lands dead-centre on the face, a trivial tell. The planner and executor must share the same sampled point; a readiness ray to a different center does not validate it.
+    in reach. Centered placement is not by itself evidence of a violation. The planner and executor must share the same sampled point; a readiness ray to a different center does not validate it.
   - **A shared A\* placement planner** (`PlacementSearch`), as an implementation pattern. `frontier(targets)`
     returns the subset fillable *this tick* (replaceable *and* a reachable sturdy face exists), ordered **cheapest aim-
     movement first** (`rotCost = |Δyaw| + |Δpitch|` from your current look to the click face), so a caller places one or
@@ -480,11 +485,10 @@ anticheat-notes and settings.
   a **1-tick window** (only the hit's own movement packet carries the flick), and ideally a **packet-choke** (hold
   outgoing movement during the flick, flush right after the attack) so the server sees a controlled sequence rather
   than a sustained off-target look.
-- **Ping-adaptive timing (the honest version).** Everything that sits behind the server — packet delays, backtrack,
-  attack freshness — has a safe budget of `lag-comp-window − your ping` (windows cluster ~150–200 ms). A shared
-  **network-conditions monitor** (smoothed ping + jitter + a spike flag, read from the keep-alive/transaction RTT) lets
-  those modules self-cap to that budget and **back off on a spike**, instead of fixed delays that are fine at 30 ms and
-  suicidal at 200 ms. It only *measures* latency; never fake it (inconsistent timing is what the timer check catches).
+- **Measured network conditions.** Keep smoothed RTT, jitter and spikes as observations. A formula such as
+  `lag-comp-window − ping` cannot establish a safe delay or attack-freshness budget without the actual server's
+  timestamp semantics and compensation policy. Use measurements to explain failures and back off under uncertainty;
+  never forge measurements. Detector-facing experiments belong in the single anticheat reference.
 - **Client-side cheat detection (analysis, not a cheat).** You can score *other* players from the data you legitimately
   receive — their position stream and head rotation — with the same signals the server ACs use: sustained over-vanilla
   speed, airborne-with-no-gravity, inhuman instant head-turns, near-zero turn-speed variance. Decay the score so a flag
@@ -809,16 +813,16 @@ A probe reproducing today's defect is audit evidence; acceptance tests should as
 
 ## 12. Config & persistence
 
-Settings are the single source of truth (§1), so persistence is just *serialising the settings tree* — and the
-interesting engineering is **migration** (a shipped client renames and merges things constantly) and a **shareable
-config marketplace**.
+Settings describe configuration, but different state has different persistence boundaries. Classify it before
+serializing: shareable presets, account/device preferences, UI layout and ephemeral execution state need separate
+contracts. Migration and explicit stable identifiers matter more than the displayed label.
 
 **Per-setting (de)serialisation.** Each `Setting<T>` has `toJson()` / `fromJson(element)` for its own type (a bool is a
 primitive, a `Range` a `{min,max}` pair, a `Color` an ARGB int + chroma flags, a `Mode` the enum name, an `ItemList` an
-array, …). Its storage **key** is derived from its name (`name.toLowerCase().replace(' ', '_')`), so renaming a setting
-*changes its key* — which is why every setting also carries **`legacyKeys("old_id", …)`**: when its own key is absent
-from a saved object, `loadLegacy` tries each old key in order and loads from the first present. That one hook makes a
-rename config-compatible with zero other code.
+array, …). Give each setting and module an explicit permanent **ID** independent of its label, category,
+translation and Java class/member name. A label change should not change the storage key. When importing an older
+name-derived format, migrate aliases with `legacyKeys("old_id", …)` only if the explicit current ID is absent;
+reject ambiguous aliases and preserve user values. Test the serialized format through the obfuscated release too.
 
 **Per-module.** `Module.toJson()` writes `{enabled, keybind, bindMode, favorite?, hidden?, settings:{key→setting}}`.
 `fromJson(obj, applyModuleStates)` restores them, and for each setting whose key is *missing* calls `loadLegacy` so a
@@ -828,7 +832,7 @@ restructured setting still loads. The **`applyModuleStates`** flag is the subtle
 "Auto-load module states" preference (default off, so applying someone's config doesn't suddenly enable their modules).
 
 **The file & load order.** One `config.json`: `{version, styleVersion, guiVersion, modules:{id→module}, gui}`, where
-`id = name.toLowerCase().replace(' ', '_')`. Load runs **strictly in order**: (1) rename/merge passes mutate the *raw*
+`id` is the permanent module ID. Load runs **strictly in order**: (1) rename/merge passes mutate the *raw*
 `modules` JSON *before* any module reads it; (2) each live module reads its object; (3) cross-module migrations that need
 the live objects (e.g. Chams→ESP); (4) GUI state; (5) versioned default-migrations. Saves are **debounced** (a dirty
 flag flushed ~1.5 s later on the client tick) so rapid edits batch, with an "Auto Save off" mode that holds changes for
@@ -847,9 +851,9 @@ the explicit save points (menu close, client stop).
   target the config doesn't already have, and run dependent migrations in order (merge before the dissolve that targets
   it).
 - **Versioned *defaults*** — a monotonic `styleVersion` / `guiVersion`: when the client's default look changes, bump the
-  constant and, for configs below it, **move only values still sitting at the old default** (a scale/colour/corner the
-  user explicitly picked is detected by comparing to the old default and left alone). This ships a nicer default without
-  overwriting anyone's choices.
+  constant and, for configs below it, consider values still sitting at the old default. A scale/colour/corner
+  value equal to the old default is not proof the user never explicitly selected it. Track explicit user overrides when
+  that distinction matters; otherwise document the migration policy and preserve ambiguous choices.
 
 **Config profiles & a shareable marketplace.** `export()` serialises every module's settings (plus keybind/favorite/
 hidden) but **not** the click-GUI panel layout, so a shared config doesn't move someone's windows; `importConfig(root,
@@ -859,6 +863,41 @@ through review (`private → pending → approved`), browse/detail/apply with do
 The session token arrives through an explicit bootstrap/entry-point handoff rather than a JVM-wide property; apply fetches JSON and hands it to
 `importConfig` on the main thread, and submit/export reuse the exact same serialisation — one format for disk, live sync,
 and the marketplace.
+
+
+### Persistence boundaries and reconnects
+
+- **Shareable presets:** portable module settings; applying a downloaded config must not grant remote access,
+  record commands, execute workflows or overwrite account/device preferences.
+- **Local account/device preference:** save deliberate On and Off choices in a versioned, bounded, atomically replaced
+  file. Pick the account/profile scope explicitly; use opaque stable IDs rather than display names. Missing defaults
+  and corrupt-file handling must be distinct; preserve invalid data and explain when recovery defaults off.
+- **Ephemeral execution:** workers, socket connections, viewing leases, queued commands, ownership claims and partial
+  transactions end on teardown. Restore a remembered feature by creating a fresh session after prerequisites are
+  ready; never restore its old lease, pending action or another account's authority.
+- Explicit Off changes the preference even when the live connection has already ended. Disconnect, authorization
+  failure and cleanup close the connection according to policy without silently rewriting a deliberate choice.
+  Surface saved preference and current connection state separately. A failed write must be reported as unsaved.
+- UI layout and browser-only preview pause/cadence have their own scope. Replacing an instance ID should not discard
+  those choices. Follow a replacement connection only for the selected account/version; intentionally selected history
+  should remain inspectable. Invisible/closed preview surfaces release their live viewing leases.
+
+Exercise On/Off across two injections, missing/corrupt files, explicit Off after disconnect, account changes, imported
+configs, unavailable storage and teardown. Restored preferences must not resurrect queued work.
+
+### Bounded work and measurements
+
+Make expensive surveys and planners incremental, with a cursor, per-tick operation/time budget and a generation tied
+to the world/goal. A stream of ordinary updates should invalidate affected results without starving the cursor by
+restarting the entire job every tick. Retain a verified route while rebuilding when its current corridor still fits;
+stop dependent actions when their actual prerequisites become invalid. Share indexed footprint membership and
+immutable snapshots; rendering must not launch another world scan.
+
+Measure steady-state and worst observed tick/frame durations, queue age, allocations and scan progress with realistic
+region sizes, update bursts, stalls and module combinations. Report the workload and percentile/max interval rather
+than only average FPS or an arbitrary claim that a scan is cheap. Use bounded buffers and background I/O; game/world
+objects still belong on their supported thread. A reset/refill has separate navigation, surface-mining and full-volume
+completion states: follow observed reachable work without treating unknown cells as cleared or unlocking unsafe descent.
 
 ---
 

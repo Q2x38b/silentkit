@@ -149,6 +149,15 @@ toggle so dense panels stay readable.
 
 ---
 
+### Layout measurements and list resizing
+
+Use one measured layout snapshot for drawing, clipping, scrolling, resize limits and hit testing. Include headers,
+search/import/action rows, gaps and conditional content in the measured height. Store a preferred panel size separately
+from its screen-clamped visible size so a temporary small viewport does not erase the user's larger preference.
+Recompute bounds after filtering, config import and GUI-scale/viewport changes, then clamp scroll offsets. Test empty,
+one-row, populated, filtered and oversized lists, last-row access and resize drags at multiple scales. Popup hit testing
+and clipping must agree with the layer actually drawn.
+
 ## 4. HUD / overlay system
 
 - A **HudModule** subtype renders to the screen each frame from a shared **anchor + offset** model (anchor to a screen
@@ -240,7 +249,10 @@ behind a master "UI sounds" switch.
 
 If the client has a backend, mirror the menu on the web: the client holds a lightweight heartbeat that pushes its
 current config to a per-user row and polls for edits; the website renders the same settings and patches one module at
-a time. Make web edits land only while the client is online. This also gives a natural home for a phone companion
+a time. Make web edits land only while the client is online. Show saved preference, connection status and active viewing
+as distinct states; persist preview pause/cadence at the intended browser scope and retain them across replacement
+connections. Backend authorization and viewing leases belong in the behavior/runtime layer. This also gives a natural
+home for a phone companion
 (push notifications, a live map, remote loadout switch) and an **update notifier** (compare versions server-side, toast
 the client). Keep the transport generic (any small key/value backend).
 

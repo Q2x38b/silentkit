@@ -403,6 +403,22 @@ precisely because the sims never mutate world or entity state.
    callbacks, workers/sockets and renderer compatibility. Compilation, fixture verification, an attach acknowledgement
    and a live round trip establish different facts; none establishes undetectability or blanket launcher support.
 
+### Release artifacts and deployment boundaries
+
+Verify the **shipped** version-specific artifact after obfuscation, relocation and resource packaging. Round-trip
+persistent settings and named routines through that artifact using fixtures; explicit JSON keys must survive renamed
+classes and fields. Assert development command bridges, debug listeners and test credentials are absent or disabled.
+Record the artifact hash, supported game version, hook manifest and validation outcomes; preserve a known-good payload
+and a rollback path. Compare hook warnings against the supported baseline and investigate any changed required hook.
+A build or static verifier does not establish that a live reinjection succeeded.
+
+Treat client OTA, injector/installer, website frontend and backend as separate deployment units. Publish only the
+changed units through the project's established route; a local preference fix does not by itself require a backend
+schema deployment. Recheck active versions before replacing releases, verify published hash/version/channel, and
+report partial publication explicitly. Use the consuming project's supported encryption/delivery format rather than
+embedding deployment credentials or one project's URLs in this skill. Do not let a release helper's incidental
+notification or installer uploads expand an OTA-only request.
+
 ---
 
 ## 9. Protection & auth (the paid-client layer)

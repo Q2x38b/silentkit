@@ -43,6 +43,20 @@ validation, rotation, movement, reach, packet order and corrections. The queryab
 Source review, deterministic tests, hook verification and live server observations establish different facts.
 Numerical examples are tuning aids; neither randomness nor the absence of local alerts guarantees acceptance.
 
+
+## Catalogue validation
+
+The catalogue has permanent entry IDs and a local JSON Schema. From the repository root, run:
+
+```bash
+python3 skills/silentkit-modules/scripts/validate_catalogue.py
+python3 skills/silentkit-modules/scripts/test_catalogue.py
+```
+
+The dependency-free checker validates the schema assertions used by this catalogue, unique IDs, category-scoped name/
+alias resolution and local file/heading references. The schema can also be consumed by a standard JSON Schema 2020-12
+validator. Test scenarios describe required validation; optional evidence records carry actual source/scope/results.
+
 ## Scope & intent
 
 These are **engineering references** for the architecture of a ghost client — the patterns, the math, the

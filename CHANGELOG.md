@@ -2,6 +2,19 @@
 
 Notable changes to the SilentKit skills. Newest first.
 
+## 2026-11-16
+
+- Added explicit stable IDs and a versioned JSON Schema for the 165-entry module catalogue, with offline validation
+  of required fields, duplicate IDs, ambiguous aliases and local heading references; exercised rejection fixtures.
+- Added workflows, module conflicts, remote control and live world-map capabilities with prerequisites, validation
+  scenarios and action-consistency tips. Entries describe portable capabilities rather than implementation claims.
+- Separated saved local preferences, shareable presets, UI layout and transient execution/authorization state;
+  documented reinjection/account boundaries, explicit Off and invalid/unavailable storage.
+- Qualified rotation/timing examples and removed categorical distribution, mouse-grid and latency-budget claims.
+  Retained the single detector/action-validation reference.
+- Added bounded incremental jobs and performance measurement guidance, shared layout measurements for lists/resize,
+  and shipped-artifact persistence checks plus separate client/frontend/backend deployment verification.
+
 ## 2026-11-02
 
 ### silentkit-modules
