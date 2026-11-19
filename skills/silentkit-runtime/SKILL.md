@@ -97,6 +97,35 @@ system loader. Keep a versioned bootstrap/bridge stable and load the engine/impl
 not just the client classes. Track bootstrap ABI, engine build ID, payload hash and actual game version independently.
 A compatible implementation can refresh; an incompatible permanent bootstrap requires a clear restart outcome.
 
+### Optional native boundary
+
+Keep a native component narrow and justified by a platform requirement; a native injector proposal is not evidence
+that a JVM client needs a rewrite. On Windows, keep `DllMain` minimal and defer JVM, UI and hook initialization until
+outside the loader lock. Native shutdown must wait for owned work to stop before unloading executable code; do not
+wait for those workers inside `DllMain`. See [Microsoft's DLL guidance](https://learn.microsoft.com/en-us/windows/win32/dlls/dynamic-link-library-best-practices).
+
+Use the real headers from the selected JDK, including its platform headers, rather than synthesized JNI declarations.
+`JNIEnv*` belongs to its current thread: obtain it for each attached native worker and detach workers the component
+attached when they exit. Bound/delete local references in long-lived loops, explicitly own global references, and
+check Java exceptions before continuing JNI operations. Cache member IDs with the correct declaring class/loader
+lifetime; reacquire player/world objects after session replacement. See the [JNI design specification](https://docs.oracle.com/en/java/javase/25/docs/specs/jni/design.html).
+
+A render/swap callback provides a drawing boundary, not blanket permission to mutate game state. Schedule game
+operations through the game's executor/tick path, respect the active graphics context, and restore any graphics,
+window-procedure or input state actually changed. Test supported renderer/loader combinations rather than assuming
+an older OpenGL hook works across newer renderers or platforms.
+
+### Dependencies and evidence
+
+Use authentic upstream sources for third-party libraries and JDK interfaces, pin reproducible versions or commits,
+retain license notices, and verify downloaded artifacts through the consuming project's established checks. Do not
+generate lookalike dependency implementations or treat placeholder headers as a working integration. Check whether
+a library is needed before adding its binary/import library to every platform's build.
+
+Label what exists: a design proposal, generated scaffold, successful build, fixture verification and a live round
+trip establish different facts. A file tree and a planned verification section establish neither working hooks nor
+performance gains. Keep each claimed improvement tied to inspected code, an executed check or an observed result.
+
 ---
 
 ## 2. Classloaders & loading from in-memory bytes
@@ -308,6 +337,12 @@ need the old runtime. Block reinjection into that incomplete state. Renderer/res
 boundary: a full reload mid-world-render can race framebuffers. Remove owned render pipelines before their resources,
 and rebuild targets through the supported resize/reload path where necessary.
 
+Disable hooks before dismantling services, preserving original behavior for residual call sites: observational hooks
+can return without acting, value modifiers must return the original value, and redirects must call the original
+operation. A generic zero/null fallback is not safe for every hook kind. Keep the required bridge alive after a partial
+restore, and do not reactivate it merely by clearing a diagnostic. Async cleanup/reload completion belongs to teardown
+status too; report pending completion or a bounded failure instead of declaring success when work is only queued.
+
 Maintain a cleanup stack from the first acquired resource, including partially initialized attempts whose active
 flag was never set. Aggregate failures and continue independent cleanup steps. Invalidate queued startup/resource
 callbacks with the attempt generation before stopping workers or releasing keys.
@@ -399,6 +434,11 @@ precisely because the sims never mutate world or entity state.
 3. Exercise target discovery with a dedicated server, incompatible client, multiple clients, explicit wrong PID,
    renamed payload, stale status and absolute-path invocation from an unrelated working directory. A probe must not
    initialize or modify unrelated targets merely to classify them.
+   A diagnostic-only report should identify the actual target game/JVM and loader, exact payload hash/build metadata,
+   bridge compatibility, instrumentation capabilities, observed hook matches (including zero), and startup/cleanup
+   phase. Distinguish planned, inserted and installed hooks; absence of live coverage must be shown as unmeasured.
+   Keep launch credentials and user command lines out of reports. A read-only probe can attach its inspection agent
+   without installing the client payload; say so explicitly rather than calling it an attachment-free check.
 4. When authorized, verify the live `inject → use feature → uninject → reinject` loop, including resources, stale
    callbacks, workers/sockets and renderer compatibility. Compilation, fixture verification, an attach acknowledgement
    and a live round trip establish different facts; none establishes undetectability or blanket launcher support.
