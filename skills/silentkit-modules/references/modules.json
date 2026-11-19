@@ -1,6 +1,6 @@
 {
  "$schema": "modules.schema.json",
- "about": "Brand-neutral catalogue of module/technique patterns, not a claim that every consuming client implements them. Resolve aliases and category before adding a module. Each entry carries concrete bypass_tips, prerequisites, flag_triggers and target-specific validation scenarios. Risk is an engineering heuristic, not server acceptance. Reference paths are relative to this catalogue; anticheat-bypass.md is the single detailed detector/action-validation reference. General state, navigation and protocol contracts are in the main skill.",
+ "about": "Brand-neutral catalogue of module/technique patterns, not a claim that every consuming client implements them. Resolve aliases and category before adding a module. Each entry carries concrete bypass_tips, prerequisites, flag_triggers and target-specific validation scenarios. Risk is an engineering heuristic, not server acceptance. Reference paths are relative to this catalogue; anticheat-bypass.md is the single detailed detector/action-validation reference. General state, navigation and protocol contracts are in the main skill. Feature groups detail composite modules without tying the reference to one client brand. Coverage is an inventory of module registrations and directly declared setting labels, not proof of implementation completeness or live validation.",
  "techniques": {
   "humanization": {
    "primitives": [
@@ -341,7 +341,33 @@
     "Overshoot",
     "Drift Speed",
     "Shake",
-    "Reacquire Delay"
+    "Reacquire Delay",
+    "Targets",
+    "Require Mouse Down",
+    "Check Block Break",
+    "Break Whitelist",
+    "Pickaxes",
+    "Axes",
+    "Shovels",
+    "Hoes",
+    "Shears",
+    "Aim Vertically",
+    "Vertical Speed",
+    "Horizontal Speed",
+    "Limit to Items",
+    "Allow Swords",
+    "Allow Axes",
+    "Allow Maces",
+    "Allow Tridents",
+    "Allow Fist",
+    "Follow Strength",
+    "Reaction Delay",
+    "Reaction",
+    "Ease In",
+    "Overshoot Amount",
+    "Drift Aim Point",
+    "Shake Strength",
+    "Lose Behind Blocks"
    ],
    "reference": "anticheat-bypass.md#click-validation",
    "bypass_reference": "anticheat-bypass.md#rotation-output",
@@ -388,7 +414,33 @@
     "Shield Check",
     "Early Hit/Miss Chance",
     "Extra Swing Distance",
-    "Require Mouse Down"
+    "Require Mouse Down",
+    "Targets",
+    "Click Mode",
+    "APS",
+    "Extra Delay",
+    "Select First Hit",
+    "Ignore Activation Click",
+    "Early Hit Chance",
+    "Target Miss Chance",
+    "Break Blocks",
+    "Break Blocks Delay",
+    "Break Blocks Whitelist",
+    "Pickaxes",
+    "Axes",
+    "Shovels",
+    "Hoes",
+    "Shears",
+    "Disable on Death",
+    "Show Target",
+    "Target Color",
+    "Attack Color",
+    "Limit to Items",
+    "Allow Swords",
+    "Allow Axes",
+    "Allow Maces",
+    "Allow Tridents",
+    "Allow Fist"
    ],
    "aliases": [
     "KillAura"
@@ -437,7 +489,32 @@
     "Charge range (Triggerbot)",
     "Mace Smash + Require Fall + Smash Only + Stun Slam",
     "Wait for Aim",
-    "Jitter"
+    "Jitter",
+    "Extra Clicks",
+    "Hold to Click",
+    "Target Gate",
+    "Break Blocks",
+    "Break Delay",
+    "Break Whitelist",
+    "Pickaxes",
+    "Axes",
+    "Shovels",
+    "Hoes",
+    "Shears",
+    "CPS",
+    "Click Range",
+    "Misclicks",
+    "Misclick Chance",
+    "Charge",
+    "Charge Gate",
+    "Mace Smash",
+    "Require Fall",
+    "Smash Only",
+    "Extra Delay",
+    "Stun Slam",
+    "Stun Chance",
+    "Aim Tolerance",
+    "Jitter Strength"
    ],
    "reference": "anticheat-bypass.md#click-validation",
    "aliases": [
@@ -515,7 +592,9 @@
     "Chance",
     "Mode (Pause/Active)",
     "Pause Time",
-    "Preference (KB reduction/Critical hits)"
+    "Preference (KB reduction/Critical hits)",
+    "Mode",
+    "Preference"
    ],
    "bypass_reference": "anticheat-bypass.md#click-validation",
    "prerequisites": [
@@ -590,7 +669,15 @@
     "Prefer (Damage/DPS)",
     "weapon toggles",
     "Axe On Shield",
-    "Swap Back Delay"
+    "Swap Back Delay",
+    "Mode",
+    "Prefer",
+    "Swords",
+    "Axes",
+    "Maces",
+    "Tridents",
+    "Targets",
+    "Swap Back"
    ],
    "bypass_reference": "anticheat-bypass.md#click-validation",
    "prerequisites": [
@@ -629,7 +716,8 @@
     "Range",
     "Timing +-3t",
     "Stop Sprint",
-    "Skip In Liquid"
+    "Skip In Liquid",
+    "Timing"
    ],
    "bypass_reference": "anticheat-bypass.md#movement-and-state-consistency",
    "prerequisites": [
@@ -743,7 +831,8 @@
     "Predictive",
     "Reaction Delay",
     "Silent Aim",
-    "Stop Movement"
+    "Stop Movement",
+    "Move on Finish"
    ],
    "bypass_reference": "anticheat-bypass.md#click-validation",
    "prerequisites": [
@@ -781,7 +870,15 @@
     "Not in player list",
     "Behavior Score + Threshold",
     "Ignore Teammates",
-    "Ignore for visuals/combat"
+    "Ignore for visuals/combat",
+    "Always invisible",
+    "Always stationary",
+    "Never on ground",
+    "Behavior Score",
+    "Score Threshold",
+    "Ignore for visuals",
+    "Ignore for combat",
+    "Ignore teammates"
    ],
    "bypass_reference": "anticheat-bypass.md#evidence-and-scope",
    "prerequisites": [
@@ -824,7 +921,26 @@
     "Optimization (None/Rapid/Predict)",
     "Min Efficiency",
     "Auto Obsidian",
-    "Silent Aim"
+    "Silent Aim",
+    "Target Settings",
+    "Max Angle",
+    "Aim Speed",
+    "Anti-Suicide",
+    "Max Self Damage",
+    "Optimization",
+    "Rapid Min Efficiency",
+    "Predict Attack Velocity",
+    "Center Screen",
+    "Show Target",
+    "Target Color",
+    "Attack Color",
+    "Manual Aim Speed",
+    "Manual Anti-Suicide",
+    "Manual Max Self Damage",
+    "Manual Delay",
+    "Manual Optimization",
+    "Place Obsidian",
+    "Show Target Block"
    ],
    "bypass_reference": "anticheat-bypass.md#reach-placement-and-mining",
    "prerequisites": [
@@ -864,7 +980,14 @@
     "Explosion Item Whitelist",
     "Anti-Suicide + Max Self Damage",
     "Aim Assist + Silent + Speed",
-    "Delay"
+    "Delay",
+    "Mode",
+    "Explosion Item",
+    "Aim Assist",
+    "Silent Aim",
+    "Aim Speed",
+    "Anti-Suicide",
+    "Max Self Damage"
    ],
    "bypass_reference": "anticheat-bypass.md#reach-placement-and-mining",
    "prerequisites": [
@@ -900,7 +1023,10 @@
    "settings": [
     "Horizontal %",
     "Vertical %",
-    "Jitter"
+    "Jitter",
+    "Horizontal",
+    "Vertical",
+    "Chance"
    ],
    "bypass_reference": "anticheat-bypass.md#movement-and-state-consistency",
    "prerequisites": [
@@ -938,7 +1064,8 @@
     "Air Delay",
     "Ground Delay",
     "Water Check",
-    "Targets"
+    "Targets",
+    "Keep Pop-ups"
    ],
    "bypass_reference": "anticheat-bypass.md#packet-order-and-corrections",
    "prerequisites": [
@@ -1013,7 +1140,13 @@
     "Breadcrumbs",
     "Spawn Fake",
     "Auto Send + Threshold",
-    "Flush On Teleport"
+    "Flush On Teleport",
+    "Direction",
+    "Type",
+    "Color",
+    "Auto Send",
+    "Send Threshold",
+    "Show Delay"
    ],
    "reference": "../SKILL.md#lifecycle-races-replay-and-observability",
    "bypass_reference": "anticheat-bypass.md#packet-order-and-corrections",
@@ -1051,7 +1184,9 @@
     "Latency",
     "Aim Gate",
     "Render Server Pos + Color",
-    "Targets"
+    "Targets",
+    "Render Server Pos",
+    "Color"
    ],
    "bypass_reference": "anticheat-bypass.md#packet-order-and-corrections",
    "prerequisites": [
@@ -1091,7 +1226,8 @@
     "Range",
     "Max Desync",
     "Targets",
-    "Show Delay"
+    "Show Delay",
+    "Breadcrumb"
    ],
    "reference": "../SKILL.md#lifecycle-races-replay-and-observability",
    "bypass_reference": "anticheat-bypass.md#packet-order-and-corrections",
@@ -1240,7 +1376,8 @@
    "anticheat_notes": "Scope and remove owned attribute modifiers, but verify that the server actually authorizes the same step height. A transient client modifier alone is not acceptance evidence.",
    "settings": [
     "Height 0.6-3.0",
-    "Ground Only"
+    "Ground Only",
+    "Height"
    ],
    "bypass_reference": "anticheat-bypass.md#movement-and-state-consistency",
    "prerequisites": [
@@ -1276,7 +1413,8 @@
    "anticheat_notes": "Entry/continuation and acceleration must match the actual game version. Repeated direct reassertion is not inherently safe; no risk label guarantees acceptance.",
    "settings": [
     "Keep Sprint",
-    "Omnidirectional (optional)"
+    "Omnidirectional (optional)",
+    "Cancel Invis"
    ],
    "reference": "../SKILL.md#input-state-transitions-and-optional-authorized-flight",
    "aliases": [
@@ -1358,7 +1496,14 @@
     "Edge/input gates",
     "Planning budget",
     "Effect-aware profile",
-    "Unsupported-transition policy"
+    "Unsupported-transition policy",
+    "Edge Distance",
+    "Only While Sprinting",
+    "Require Forward",
+    "Select Key",
+    "Pick Distance",
+    "Highlight",
+    "Search Limit"
    ],
    "bypass_reference": "anticheat-bypass.md#movement-and-state-consistency",
    "prerequisites": [
@@ -1403,7 +1548,14 @@
     "Aim View (Legit)",
     "Y Increase",
     "Pitch Check",
-    "Block Selection"
+    "Block Selection",
+    "Require Sneak",
+    "Aim View",
+    "Require Right Click",
+    "Block Count",
+    "Min Pitch",
+    "Blacklist",
+    "Whitelist"
    ],
    "bypass_reference": "anticheat-bypass.md#reach-placement-and-mining",
    "prerequisites": [
@@ -1479,7 +1631,21 @@
     "Return To Slot",
     "Allow Staircase",
     "Move Delay",
-    "Block Selection"
+    "Block Selection",
+    "On Void",
+    "On Lethal Fall",
+    "On More Than X Blocks",
+    "Blocks",
+    "Over Water",
+    "Silent Aim",
+    "Rotate Before Place",
+    "Place Lead",
+    "Aim Speed",
+    "Show Block Count",
+    "Reset Angle",
+    "Allow Staircase Up",
+    "Blacklist",
+    "Whitelist"
    ],
    "reference": "../SKILL.md#stateful-inventory-and-menu-automation",
    "bypass_reference": "anticheat-bypass.md#reach-placement-and-mining",
@@ -1516,7 +1682,14 @@
    "settings": [
     "Fall Distance",
     "Lethal Only",
-    "Pick Back Up"
+    "Pick Back Up",
+    "On Lethal Fall",
+    "On More Than X Blocks",
+    "Blocks",
+    "Place Height",
+    "Pick Up",
+    "Silent Aim",
+    "Aim Speed"
    ],
    "aliases": [
     "MLG",
@@ -1559,7 +1732,8 @@
     "Range",
     "Tolerance",
     "Aim Speed",
-    "Silent Aim"
+    "Silent Aim",
+    "Mode"
    ],
    "bypass_reference": "anticheat-bypass.md#reach-placement-and-mining",
    "prerequisites": [
@@ -1597,7 +1771,8 @@
     "Aim Speed",
     "Charge Delay",
     "Predictive",
-    "Silent Aim"
+    "Silent Aim",
+    "Aim Mode"
    ],
    "bypass_reference": "anticheat-bypass.md#reach-placement-and-mining",
    "prerequisites": [
@@ -1706,7 +1881,8 @@
     "Range",
     "Replant",
     "Fill Empty Farmland",
-    "Delay"
+    "Delay",
+    "Farm Range"
    ],
    "bypass_reference": "anticheat-bypass.md#movement-and-state-consistency",
    "prerequisites": [
@@ -1736,8 +1912,8 @@
    "name": "AutoMine",
    "category": "world",
    "risk": "low",
-   "summary": "Mines selected blocks with pathfinding or a controlled camera/input miner, including authorized-flight sweeps.",
-   "technique": "Held vanilla mining, committed slow-block handling or continuous instant sweeps; full-body enclosure survey, stable interior seed, fixture-aware complete-layer gate, longer routes, curved wall handoffs and explicit outside recovery. Authorized flight uses a sprint-key tap/retained latch with collision-safe final input and an ascent double-tap guard.",
+   "summary": "Selected-block, tunnel or complete-layer mining with native held attack, optional authorized flight, reset handling and bounded reconnect recovery.",
+   "technique": "Separate planning, per-frame visible aim, final consumed input and native held-attack dispatch. Respect reach/tool progress and authoritative flight. Survey full-body enclosure geometry, plan stable sparse-layer passes, distinguish progressive refills from ordinary cleared layers, coordinate safe descent and correction recovery, and reconstruct a fresh session after an explicitly eligible packet-rate kick.",
    "hook": "tick decisions + per-frame camera + final input/held-attack gates + local-player flight timer hook",
    "anticheat_notes": "Use actual reach, server flight permission and version-specific physics. Local completions are not proof of server acceptance. Keep menus/pauses, lost flight and protected blocks explicit.",
    "settings": [
@@ -1746,13 +1922,30 @@
     "Legit Mine",
     "Stop When Full",
     "Engine",
-    "Blocks/Quantity",
     "Fly",
     "Sprint Fly",
     "Fly Height",
     "Fly Radius",
     "Fly Pattern",
-    "Mine In Background"
+    "Mine In Background",
+    "Mine All",
+    "Scan Radius",
+    "Head Speed",
+    "Instamine Sweep",
+    "Walk",
+    "Mine Down",
+    "Instamine",
+    "Stay Near Start",
+    "Ground Breaks",
+    "Correction Recovery",
+    "Packet Kick Recovery",
+    "Flight Command",
+    "Visuals",
+    "Mine Map HUD",
+    "Mine Map Size",
+    "Edit Mine Map HUD",
+    "Money Labels",
+    "Token Labels"
    ],
    "reference": "../SKILL.md#input-state-transitions-and-optional-authorized-flight",
    "bypass_reference": "anticheat-bypass.md#movement-and-state-consistency",
@@ -1765,7 +1958,11 @@
     "Keep stable region/floor references and whole-layer completion; do not count fixtures, protected or unknown cells as cleared.",
     "Predict the full body using actual consumed input, momentum, effects and version-specific integration; validate braking too.",
     "Separate entry intent, retained state and engine acknowledgement; stop/replan on corrections or unsupported transitions.",
-    "Use actual reach, server flight permission and version-specific physics. Local completions are not proof of server acceptance. Keep menus/pauses, lost flight and protected blocks explicit."
+    "Use actual reach, server flight permission and version-specific physics. Local completions are not proof of server acceptance. Keep menus/pauses, lost flight and protected blocks explicit.",
+    "Use the ordinary held-attack path and validate the real current and already-sent rays; high mining throughput is not permission for invented completion or extra movement packets.",
+    "Stabilize safe forward input with a small selection preference, not a minimum hold that overrides collision/braking vetoes; release immediately when eligibility changes.",
+    "Keep refill navigation separate from layer-completion/descent. A teleport, partial refill or enchantment-cleared patch must not restart every survey tick or count unknown cells as finished.",
+    "Packet-kick recovery restores a fresh authorized session; it does not repair the original packet-rate defect or prove that the server accepts the automation."
    ],
    "flag_triggers": [
     "Prediction uses requested input before later veto/normalization",
@@ -1775,10 +1972,102 @@
     "status": "target-validation-required",
     "scenarios": [
      "Effects/permission change, diagonal input and obstacles",
-     "Repeated query, context loss, correction and no-progress bound"
+     "Repeated query, context loss, correction and no-progress bound",
+     "Manual held attack versus automated dispatched starts, break progress, local prediction and server acknowledgements",
+     "Mixed walls, fixtures, concave corners, sparse passes, empty/unreachable targets and no small-radius orbit",
+     "Stable forward/sprint under turns and layer changes; immediate veto release and query idempotence",
+     "Reset teleport, progressive sideways refill, enchantment-cleared layers and bounded survey progress",
+     "Packet-rate versus unrelated kick, finite cooldowns, preserved flight permission, command once, failed join and account/server changes"
     ]
    },
-   "id": "automine"
+   "id": "automine",
+   "features": [
+    {
+     "name": "Engine and work selection",
+     "behavior": "Choose pathfinding or direct camera/input control. Distinguish selected-block/quantity mining from bulk Mine All; bound scans and honor inventory stop. Engine names and supported block lists are adapter choices.",
+     "settings": [
+      "Engine",
+      "Blocks",
+      "Quantity",
+      "Legit Mine",
+      "Mine All",
+      "Scan Radius",
+      "Stop When Full"
+     ]
+    },
+    {
+     "name": "Ground tunnel and view",
+     "behavior": "Steer a visible, bounded turn into reachable targets; retain a committed slow block until completion or rejection. Optional ground instant prediction still requires actual tool/block permission; flight uses normal destroy progress.",
+     "settings": [
+      "Head Speed",
+      "Instamine Sweep",
+      "Walk",
+      "Mine Down",
+      "Instamine",
+      "Stay Near Start"
+     ]
+    },
+    {
+     "name": "Held attack and reach",
+     "behavior": "Keep the normal attack key held while the real crosshair and previously transmitted action ray can hit a valid face. Stop stale/protected attempts; do not compensate for missed blocks by fabricating completion packets or granting instant-break permission.",
+     "settings": []
+    },
+    {
+     "name": "Authorized flight and sprint",
+     "behavior": "Require server-granted flight and actual ability speeds. Keep floor clearance within eye reach under momentum, use stable forward/diagonal input and a bounded sprint start, and preserve valid continuation through gradual turns. Release synthetic keys on safety veto, menu, correction or higher-priority ownership.",
+     "settings": [
+      "Fly",
+      "Sprint Fly",
+      "Fly Height",
+      "Fly Radius",
+      "Fly Pattern"
+     ]
+    },
+    {
+     "name": "Walls and complete layers",
+     "behavior": "Survey the entire enclosure using a configured set of wall materials, including mixed bedrock/glowstone boundaries. Keep a stable interior seed; fixtures retain collision but do not count as mineable work. Unknown or protected cells cannot complete a layer.",
+     "settings": []
+    },
+    {
+     "name": "Sparse work and camera stability",
+     "behavior": "Give the next candidate pass only a small blocks-per-distance bonus that includes approach cost; do not interrupt an active safe pass to chase density. Across empty/unreachable areas, preserve the route heading and relax invalid block aim instead of snapping pitch or circling a point already passed.",
+     "settings": []
+    },
+    {
+     "name": "Reset and layer descent",
+     "behavior": "Treat a reset teleport and progressive sideways refill as a new survey generation. Approach observed reachable refill work while preserving valid movement, but do not dive through unknown/resetting terrain. Descend smoothly to a newly exposed layer only when whole-layer and body-clearance checks permit it.",
+     "settings": []
+    },
+    {
+     "name": "Rest and correction recovery",
+     "behavior": "Optional ground rests and server-correction recovery are separate from route resets and reconnects. Land/walk only on verified support; bound no-progress/repeated correction recovery. A short landing is not proof that a server violation was cleared.",
+     "settings": [
+      "Ground Breaks",
+      "Correction Recovery"
+     ]
+    },
+    {
+     "name": "Packet-kick session recovery",
+     "behavior": "Recognize an eligible packet-rate disconnect, release old routes/actions, cool down and reconnect only to the recorded account/server. Wait for a playable stable world; send the configured flight command once only if authoritative flight permission is absent, then observe permission before resuming. Retries/timeouts are finite; cancel on user navigation, scope changes, rejection or repeated kicks. Example 10/20/40-second cooldowns and three attempts are local policy, not detector thresholds.",
+     "settings": [
+      "Packet Kick Recovery",
+      "Flight Command"
+     ]
+    },
+    {
+     "name": "Background, overlays and metrics",
+     "behavior": "Background control exempts only the owned focus gates; deliberate menus pause. Visuals/HUD render cached snapshots. Keep one persisted map toggle in the owning module while the HUD owns placement/scale; separate money/token source labels and local break statistics from confirmed revenue.",
+     "settings": [
+      "Mine In Background",
+      "Visuals",
+      "Mine Map HUD",
+      "Mine Map Size",
+      "Edit Mine Map HUD",
+      "Money Labels",
+      "Token Labels"
+     ]
+    }
+   ]
   },
   {
    "name": "BaseFinder",
@@ -1799,7 +2088,34 @@
     "Roam Distance",
     "Fly Altitude",
     "Stop On Find",
-    "Toast/Sound/Webhook"
+    "Toast/Sound/Webhook",
+    "Storage Scan",
+    "Scan Valuable Blocks",
+    "Shulker Weight",
+    "Valuable Block Weight",
+    "Spawner Weight",
+    "Hopper Weight",
+    "Barrel Weight",
+    "Furnace Weight",
+    "Chest Weight",
+    "Double Chest Weight",
+    "Ender Chest Weight",
+    "Emerald Blocks",
+    "Diamond Blocks",
+    "Netherite Blocks",
+    "Gold Blocks",
+    "Ancient Debris",
+    "Amethyst (anti-ESP bypass)",
+    "Amethyst Weight",
+    "Auto Mode",
+    "Resume Key",
+    "RTP Command",
+    "RTP Delay",
+    "Height Variation",
+    "Use Bot Humanization",
+    "Toast",
+    "Sound",
+    "Webhook URL"
    ],
    "bypass_reference": "anticheat-bypass.md#movement-and-state-consistency",
    "prerequisites": [
@@ -1839,7 +2155,10 @@
     "Line Width",
     "Tracers",
     "Max Shown",
-    "Scan Speed"
+    "Scan Speed",
+    "Color",
+    "Fixed Color",
+    "Cave Mode"
    ],
    "aliases": [
     "BlockESP",
@@ -1885,7 +2204,32 @@
     "Optional cleanup scope",
     "Creature combat",
     "Weapon policy",
-    "Capability trigger/effect duration"
+    "Capability trigger/effect duration",
+    "Reel Delay",
+    "Recast Delay",
+    "Recast Ground",
+    "Ground Delay",
+    "Recast Caught",
+    "Max Wait",
+    "Auto Switch",
+    "Anti Break",
+    "Min Durability",
+    "Detect Hook State",
+    "Detect Sound",
+    "Detect Particles",
+    "Detect Bobber Dip",
+    "Signals Needed",
+    "Show Bites",
+    "Feeding Frenzy",
+    "Water Navigation",
+    "Auto Sell",
+    "Trash Spare Armor",
+    "Sell Empty Slots",
+    "Water Search Range",
+    "Kill Sea Creatures",
+    "Weapon Switch",
+    "Chase Range",
+    "Fishing Angle"
    ],
    "reference": "../SKILL.md#stateful-inventory-and-menu-automation",
    "bypass_reference": "anticheat-bypass.md#click-validation",
@@ -1909,10 +2253,77 @@
     "status": "target-validation-required",
     "scenarios": [
      "Same-title/new-ID menu and cursor change",
-     "Partial/rejected transfer, manual slot change and disable"
+     "Partial/rejected transfer, manual slot change and disable",
+     "All independent navigation/sell/cleanup/combat toggle combinations and legacy combined-setting migration",
+     "Styled or split ready messages, display filtering, duplicate readiness, menu interruption and rod loss",
+     "Activation sequence, observed bobber landing/retraction, fixed effect expiry and no stale replay",
+     "Connected-water chase, unreachable target, blocked bank, weapon restoration and return anchor"
     ]
    },
-   "id": "autofish"
+   "id": "autofish",
+   "features": [
+    {
+     "name": "Bite and recast lifecycle",
+     "behavior": "Deduplicate hook state, sound, particles and settled bobber dip within a signal window. Observe a real cast, landing, bite and retraction. Handle ground/entity catches, bounded waits and failed casts explicitly.",
+     "settings": [
+      "Reel Delay",
+      "Recast Delay",
+      "Recast Ground",
+      "Ground Delay",
+      "Recast Caught",
+      "Max Wait",
+      "Detect Hook State",
+      "Detect Sound",
+      "Detect Particles",
+      "Detect Bobber Dip",
+      "Signals Needed",
+      "Show Bites"
+     ]
+    },
+    {
+     "name": "Rod selection and durability",
+     "behavior": "Select only an owned hotbar rod when allowed and respect the current hand/item-use action. Stop before the configured durability threshold rather than repeatedly retrying a missing/broken rod.",
+     "settings": [
+      "Auto Switch",
+      "Anti Break",
+      "Min Durability"
+     ]
+    },
+    {
+     "name": "Independent water navigation",
+     "behavior": "Navigation can run without selling. Find a loaded, reachable shore with body clearance and a legal cast ray; ease route view into fishing view. With navigation off, preserve the manual fishing anchor/view for return.",
+     "settings": [
+      "Water Navigation",
+      "Water Search Range",
+      "Fishing Angle"
+     ]
+    },
+    {
+     "name": "Independent selling and cleanup",
+     "behavior": "Pause casting and resolve an outstanding hook before routing to a configured merchant. Observe sale/transfer results and capacity hysteresis; optional spare-armor cleanup excludes equipped/offhand items unless explicitly selected. Merchant names and commands belong to server adapters.",
+     "settings": [
+      "Auto Sell",
+      "Sell Empty Slots",
+      "Trash Spare Armor"
+     ]
+    },
+    {
+     "name": "Creature combat in water",
+     "behavior": "Route to a fresh catch through supported land or connected open water. Float in melee position, switch weapons through an owned selection, and aim only with real reach/line of sight. Release aim on an unreachable route, bound chasing and return through a climbable bank.",
+     "settings": [
+      "Kill Sea Creatures",
+      "Weapon Switch",
+      "Chase Range"
+     ]
+    },
+    {
+     "name": "Message-triggered rod ability",
+     "behavior": "Read verified incoming server text independently of chat display filters. Normalize formatting/spacing and match a configured ready phrase, such as FEEDING FRENZY READY. Latch unused readiness through navigation/selling; reel an existing hook, activate with the required sneak/left-click rod state, then observe cast/land/reel cycles for the server-defined effect duration (for example five seconds). Do not re-activate a consumed ability after interruption.",
+     "settings": [
+      "Feeding Frenzy"
+     ]
+    }
+   ]
   },
   {
    "name": "AutoItem",
@@ -1926,7 +2337,53 @@
     "Delay range",
     "Require Sneak",
     "Skip Locked Slots",
-    "per-section toggles + sub-settings (Totem Open/Silent, Heal Health/Type, Bucket Fall, Armor Keep Elytra, Mace selection)"
+    "per-section toggles + sub-settings (Totem Open/Silent, Heal Health/Type, Bucket Fall, Armor Keep Elytra, Mace selection)",
+    "Delay",
+    "Auto Tool",
+    "Switch Back",
+    "Switch Back Delay",
+    "Auto Weapon",
+    "Prefer",
+    "Swap Back",
+    "Swap Back Delay",
+    "Auto Totem",
+    "Open Inventory",
+    "Silent Open",
+    "Silent Move Delay",
+    "Close Inventory",
+    "Inventory Only",
+    "Combat Only",
+    "Activation Delay",
+    "Refill",
+    "Random Slot",
+    "Totem Delay",
+    "Extra Randomization",
+    "Show Totem Count",
+    "Auto Heal",
+    "Activation",
+    "Health",
+    "Type",
+    "Drink Potions",
+    "Mode",
+    "Heal Delay",
+    "Random",
+    "Scroll",
+    "Scroll Delay",
+    "Throw Bowls",
+    "Auto Bucket",
+    "Fall Distance",
+    "Lethal Only",
+    "Pick Back Up",
+    "Auto Armor",
+    "Keep Elytra",
+    "Combat Guard",
+    "Auto Shield",
+    "Auto Mace",
+    "Mace Selection",
+    "Mace Type",
+    "Mace Type Key",
+    "Auto Unequip Elytra",
+    "Re-equip Elytra"
    ],
    "bypass_reference": "anticheat-bypass.md#click-validation",
    "prerequisites": [
@@ -1968,7 +2425,34 @@
     "Speed",
     "Lock Slot",
     "Auto Steal/Deposit + filters",
-    "Move/Start Delay"
+    "Move/Start Delay",
+    "Container Tools",
+    "Container Tools Key",
+    "Reopen Menu Key",
+    "Sort Key",
+    "Sort On Middle Click",
+    "Sort Order",
+    "Move All Key",
+    "Move Matching Key",
+    "Armor In Containers",
+    "Shulker & Bundle Peek",
+    "Lock Slot Key",
+    "Lock Slot Click",
+    "Show In Inventory",
+    "Show On Hotbar",
+    "Lock Color",
+    "Shift Drag Move",
+    "Leave Hotbar Alone",
+    "Auto Steal",
+    "Steal Filter",
+    "Steal Items",
+    "Close When Done",
+    "Auto Deposit",
+    "Deposit Filter",
+    "Deposit Items",
+    "Deposit Hotbar",
+    "Move Delay",
+    "Start Delay"
    ],
    "reference": "../SKILL.md#stateful-inventory-and-menu-automation",
    "aliases": [
@@ -2127,7 +2611,13 @@
    "settings": [
     "Delay 0-3t",
     "Only While Bridging",
-    "Blocks/Exp/Crystals/Snowballs/Fireworks"
+    "Blocks/Exp/Crystals/Snowballs/Fireworks",
+    "Delay",
+    "Blocks",
+    "Experience Bottles",
+    "End Crystals",
+    "Snowballs & Eggs",
+    "Fireworks"
    ],
    "bypass_reference": "anticheat-bypass.md#evidence-and-scope",
    "prerequisites": [
@@ -2163,7 +2653,12 @@
    "settings": [
     "Interval range",
     "Jump/Look/Swing/Strafe",
-    "Only When Idle"
+    "Only When Idle",
+    "Interval",
+    "Jump",
+    "Look Around",
+    "Swing",
+    "Strafe"
    ],
    "aliases": [
     "AntiAFK"
@@ -2293,7 +2788,17 @@
      "New server/player identity, pending old work and failed acknowledgement"
     ]
    },
-   "id": "autoreconnect"
+   "id": "autoreconnect",
+   "features": [
+    {
+     "name": "Task-specific recovery coordination",
+     "behavior": "Allow only one reconnect owner. Generic reconnect and a mining/task-specific recovery sequence must not independently start connections or reset each other's retry budget. Follow-up commands require the intended fresh session and server authorization.",
+     "settings": [
+      "Delay",
+      "Max Attempts"
+     ]
+    }
+   ]
   },
   {
    "name": "Indicators",
@@ -2308,7 +2813,16 @@
     "per-type toggles",
     "Radius Scale",
     "Distance",
-    "Show Distance"
+    "Show Distance",
+    "Color",
+    "Uncommon Projectile Color",
+    "Uncommon Color",
+    "Arrows",
+    "Pearls",
+    "Potions",
+    "Eggs",
+    "Snowballs",
+    "Fireballs"
    ],
    "bypass_reference": "anticheat-bypass.md#evidence-and-scope",
    "prerequisites": [
@@ -2366,7 +2880,10 @@
      "Observe outgoing actions with optional integrations on/off"
     ]
    },
-   "id": "freelook"
+   "id": "freelook",
+   "aliases": [
+    "Perspective"
+   ]
   },
   {
    "name": "Freecam",
@@ -2419,7 +2936,9 @@
     "Line Width",
     "Marker",
     "Through Walls",
-    "Show For"
+    "Show For",
+    "Color",
+    "Hit Color"
    ],
    "aliases": [
     "Trajectories",
@@ -2462,7 +2981,15 @@
     "Color",
     "Width",
     "Opacity",
-    "Fade Far"
+    "Fade Far",
+    "Style",
+    "Targets",
+    "Near Color",
+    "Far Color",
+    "Fixed Color",
+    "Fade Far Lines",
+    "Start",
+    "Through Walls"
    ],
    "bypass_reference": "anticheat-bypass.md#evidence-and-scope",
    "prerequisites": [
@@ -2502,7 +3029,15 @@
     "Distance",
     "Color mode",
     "Opacity",
-    "Fade Far"
+    "Fade Far",
+    "Color",
+    "Near Color",
+    "Far Color",
+    "Fixed Color",
+    "Friends Color",
+    "Friend Color",
+    "Show Distance",
+    "Fade Far Arrows"
    ],
    "aliases": [
     "Arrows"
@@ -2544,7 +3079,10 @@
     "Edge Markers",
     "Beam",
     "Font Size",
-    "Death Marker"
+    "Death Marker",
+    "Distance",
+    "Add Here Key",
+    "Manager"
    ],
    "bypass_reference": "anticheat-bypass.md#evidence-and-scope",
    "prerequisites": [
@@ -2585,7 +3123,20 @@
     "Confirmation/Cooldown",
     "Notify",
     "Sound",
-    "Auto Leave (confirmed evidence only)"
+    "Auto Leave (confirmed evidence only)",
+    "Tab Ranks",
+    "Team Ranks",
+    "Nearby Players",
+    "Hidden Status",
+    "Team-only Candidates",
+    "Remember Ranks",
+    "Recent Player Chat",
+    "Confirm Time",
+    "Rank Memory",
+    "Alert Hidden",
+    "Alert Uncertain",
+    "Alert Cooldown",
+    "Auto Leave"
    ],
    "reference": "../SKILL.md#passive-identity-evidence-and-operational-statistics",
    "bypass_reference": "anticheat-bypass.md#evidence-and-scope",
@@ -2607,10 +3158,64 @@
     "status": "target-validation-required",
     "scenarios": [
      "Identity/source ambiguity and evidence expiry",
-     "Old-session callback, ignored identity and reappearance"
+     "Old-session callback, ignored identity and reappearance",
+     "Every source enabled alone and in combination; ignore wins over watch and rank heuristics",
+     "Unicode/styled ranks, changed names, conflicting UUIDs and unattributed chat-body claims",
+     "Team-only/offline candidates never trigger departure; observed profile/entity/chat confidence and alert expiry",
+     "Per-person cooldown, overflow aggregation, late callbacks and shared detector/HUD teardown"
     ]
    },
-   "id": "staffdetector"
+   "id": "staffdetector",
+   "features": [
+    {
+     "name": "Identity and rank policy",
+     "behavior": "Prefer UUID identity, exact watch/ignore lists and normalized whole-word rank labels; apply ignores before heuristics and do not infer rank from a rank-like username.",
+     "settings": [
+      "Keywords",
+      "Watch Names",
+      "Ignore Names"
+     ]
+    },
+    {
+     "name": "Independent evidence sources",
+     "behavior": "Expose tab rank text, scoreboard rank metadata, loaded nearby players and attributed player chat independently. An unlisted profile, spectator or invisible entity is evidence with a confidence level, not automatic proof of vanished staff.",
+     "settings": [
+      "Tab Ranks",
+      "Team Ranks",
+      "Nearby Players",
+      "Hidden Status",
+      "Recent Player Chat"
+     ]
+    },
+    {
+     "name": "Weak evidence and memory",
+     "behavior": "Team-only candidates and departures remain uncertain and can represent offline players. Confirm observations over a window, expire weak evidence and keep remembered ranks within the originating connection.",
+     "settings": [
+      "Team-only Candidates",
+      "Remember Ranks",
+      "Confirm Time",
+      "Rank Memory"
+     ]
+    },
+    {
+     "name": "Alert policy",
+     "behavior": "Distinguish visible, hidden-status and uncertain changes. Debounce per identity/status, bound overflow, and allow notification/sound and uncertainty alerts to be selected independently.",
+     "settings": [
+      "Notify",
+      "Alert Hidden",
+      "Alert Uncertain",
+      "Alert Cooldown",
+      "Sound"
+     ]
+    },
+    {
+     "name": "Automatic departure and shared HUD",
+     "behavior": "Keep departure opt-in and dependent on corroborated current presence. Weak team-only/departure guesses never suffice. Staff List renders the shared bounded collector; it does not run a second detector.",
+     "settings": [
+      "Auto Leave"
+     ]
+    }
+   ]
   },
   {
    "name": "Bot",
@@ -2627,7 +3232,27 @@
     "Glances",
     "Sloppy Mining",
     "Sprint Variance",
-    "Allow Break/Place/Parkour/Sprint"
+    "Allow Break/Place/Parkour/Sprint",
+    "Human Look",
+    "Look Speed",
+    "Look Noise",
+    "Overshoot",
+    "Aim Spread",
+    "Break Hesitation",
+    "Hesitation",
+    "Pause Every",
+    "Pause Length",
+    "Glance Around",
+    "Wander",
+    "Wander Amount",
+    "Sloppy Chance",
+    "Walking Glances",
+    "Allow Break",
+    "Allow Place",
+    "Allow Parkour",
+    "Allow Sprint",
+    "Show Path",
+    "Stop Bot"
    ],
    "bypass_reference": "anticheat-bypass.md#movement-and-state-consistency",
    "prerequisites": [
@@ -2706,7 +3331,30 @@
     "Health Bar + Side + Number",
     "Name + Display Name + Background",
     "Line Width",
-    "Chams + Visible/Hidden Color + Opacity + Self"
+    "Chams + Visible/Hidden Color + Opacity + Self",
+    "Player Color",
+    "Friend Color",
+    "Mob Color",
+    "Animal Color",
+    "Mode",
+    "Filled",
+    "Through Walls",
+    "Hitbox",
+    "Hitbox Expand",
+    "Bounding Box",
+    "Priority Only",
+    "Health Bar",
+    "Health Bar Side",
+    "Health Number",
+    "Name",
+    "Use Display Name",
+    "Show Background",
+    "Chams",
+    "Chams Colored",
+    "Chams Visible Color",
+    "Chams Hidden Color",
+    "Chams Opacity",
+    "Chams Self"
    ],
    "aliases": [
     "ItemESP"
@@ -2749,7 +3397,28 @@
     "Outline Open + Color",
     "Line Width",
     "Fill",
-    "per-type toggles+colors"
+    "per-type toggles+colors",
+    "Style",
+    "Outline Open",
+    "Open Color",
+    "Render Chests",
+    "Chest Color",
+    "Render Trapped Chests",
+    "Trapped Chest Color",
+    "Render Ender Chests",
+    "Ender Chest Color",
+    "Render Shulker Boxes",
+    "Shulker Box Color",
+    "Render Barrels",
+    "Barrel Color",
+    "Render Hoppers",
+    "Hopper Color",
+    "Render Furnaces",
+    "Furnace Color",
+    "Render Dispensers",
+    "Dispenser Color",
+    "Render Droppers",
+    "Dropper Color"
    ],
    "bypass_reference": "anticheat-bypass.md#evidence-and-scope",
    "prerequisites": [
@@ -2790,7 +3459,20 @@
     "Hide Bots",
     "Auto Scale",
     "Background",
-    "Max Tags"
+    "Max Tags",
+    "Show ",
+    "Health",
+    "Distance",
+    "Effects",
+    "Max Distance",
+    "Equipment",
+    "Armor",
+    "Held Items",
+    "Enchants",
+    "Calculate Effects",
+    "Entities",
+    "Scale",
+    "Friend Color"
    ],
    "bypass_reference": "anticheat-bypass.md#evidence-and-scope",
    "prerequisites": [
@@ -2830,7 +3512,21 @@
     "Color Mode (Relationship/Intent/Team/Custom)",
     "Aim Angle",
     "Dot/Radar Style",
-    "Rotate With View"
+    "Rotate With View",
+    "Mode",
+    "Distance",
+    "Max Shown",
+    "Radar Size",
+    "Radar Scale",
+    "Show Cross",
+    "Clamp Radar",
+    "Color Mode",
+    "Friendly Color",
+    "Enemy Color",
+    "Custom Color",
+    "Dot Style",
+    "Radar Style",
+    "Show Background"
    ],
    "bypass_reference": "anticheat-bypass.md#evidence-and-scope",
    "prerequisites": [
@@ -2867,7 +3563,8 @@
     "Zoom factor",
     "Scroll To Zoom",
     "Smooth",
-    "Cinematic Camera"
+    "Cinematic Camera",
+    "Zoom"
    ],
    "bypass_reference": "anticheat-bypass.md#evidence-and-scope",
    "prerequisites": [
@@ -2934,7 +3631,8 @@
    "anticheat_notes": "FovChanger should keep its custom fov, optionally static (no sprint/bow fov change) behavior local; separately validate any optional command, input or packet side effect.",
    "settings": [
     "FOV 30-110",
-    "Static FOV"
+    "Static FOV",
+    "FOV"
    ],
    "bypass_reference": "anticheat-bypass.md#evidence-and-scope",
    "prerequisites": [
@@ -2957,7 +3655,10 @@
      "Observe outgoing actions with optional integrations on/off"
     ]
    },
-   "id": "fovchanger"
+   "id": "fovchanger",
+   "aliases": [
+    "Fov"
+   ]
   },
   {
    "name": "Crosshair",
@@ -2973,7 +3674,19 @@
     "Color/Accent",
     "Dynamic",
     "Hit Marker",
-    "Cooldown Ring"
+    "Cooldown Ring",
+    "Size",
+    "Gap",
+    "Thickness",
+    "Color",
+    "Use Accent",
+    "Outline",
+    "Cooldown Shape",
+    "Ring Radius",
+    "Ring Thickness",
+    "Ring Hide When Ready",
+    "Miss Ticks",
+    "Hide In Third Person"
    ],
    "bypass_reference": "anticheat-bypass.md#evidence-and-scope",
    "prerequisites": [
@@ -3008,7 +3721,8 @@
    "anticheat_notes": "TimeChanger should keep its client-side time-of-day override behavior local; separately validate any optional command, input or packet side effect.",
    "settings": [
     "Time preset",
-    "Custom Ticks"
+    "Custom Ticks",
+    "Time"
    ],
    "bypass_reference": "anticheat-bypass.md#evidence-and-scope",
    "prerequisites": [
@@ -3042,7 +3756,8 @@
    "hook": "end-of-tick",
    "anticheat_notes": "WeatherChanger should keep its forces clear/rain/thunder on your screen behavior local; separately validate any optional command, input or packet side effect.",
    "settings": [
-    "Weather (Clear/Rain/Thunder)"
+    "Weather (Clear/Rain/Thunder)",
+    "Weather"
    ],
    "bypass_reference": "anticheat-bypass.md#evidence-and-scope",
    "prerequisites": [
@@ -3084,7 +3799,12 @@
     "Translate + Language",
     "Hide Join/Leave",
     "Rounded Corners",
-    "Chat Search"
+    "Chat Search",
+    "Slide Duration",
+    "Translate",
+    "Translate Everyone",
+    "Corner Radius",
+    "Search Filters"
    ],
    "bypass_reference": "anticheat-bypass.md#evidence-and-scope",
    "prerequisites": [
@@ -3158,7 +3878,15 @@
     "User/Server/Clock",
     "Size/Weight",
     "Color",
-    "Version"
+    "Version",
+    "User",
+    "Server",
+    "Clock",
+    "24 Hour Time",
+    "Seconds",
+    "Custom Text",
+    "Size",
+    "Weight"
    ],
    "bypass_reference": "anticheat-bypass.md#evidence-and-scope",
    "prerequisites": [
@@ -3197,7 +3925,12 @@
     "Space Bar",
     "Sneak & Sprint",
     "Key Style",
-    "colours"
+    "colours",
+    "Key Color",
+    "Pressed Color",
+    "Pressed Uses Accent",
+    "Text Color",
+    "Dark Text When Pressed"
    ],
    "bypass_reference": "anticheat-bypass.md#evidence-and-scope",
    "prerequisites": [
@@ -3238,7 +3971,15 @@
     "Side Bar",
     "Connected Rows",
     "Sort",
-    "Animate"
+    "Animate",
+    "Text Shadow",
+    "Lowercase",
+    "Show Suffix",
+    "Show Keybind",
+    "Row Radius",
+    "Spacing",
+    "Row Padding",
+    "Include HUD Modules"
    ],
    "aliases": [
     "Text GUI",
@@ -3281,7 +4022,10 @@
     "Armor Bar/Pieces",
     "Distance",
     "Above Head",
-    "Head Bar Scale"
+    "Head Bar Scale",
+    "Targets",
+    "Armor Bar",
+    "Armor Pieces"
    ],
    "bypass_reference": "anticheat-bypass.md#evidence-and-scope",
    "prerequisites": [
@@ -3321,7 +4065,11 @@
     "Health Number",
     "Win Indicator",
     "Damage/Hits/Pots Comparators",
-    "Combo"
+    "Combo",
+    "Damage Comparator",
+    "Combo Counter",
+    "Hits Comparator",
+    "Pots Used"
    ],
    "bypass_reference": "anticheat-bypass.md#evidence-and-scope",
    "prerequisites": [
@@ -3360,7 +4108,8 @@
     "Icons",
     "Amplifier",
     "Hide Vanilla",
-    "Blink When Low"
+    "Blink When Low",
+    "Title"
    ],
    "bypass_reference": "anticheat-bypass.md#evidence-and-scope",
    "prerequisites": [
@@ -3398,7 +4147,11 @@
     "Orientation",
     "Durability display",
     "Held/Offhand",
-    "Hide Empty"
+    "Hide Empty",
+    "Durability",
+    "Held Item",
+    "Offhand",
+    "Hide Empty Slots"
    ],
    "bypass_reference": "anticheat-bypass.md#evidence-and-scope",
    "prerequisites": [
@@ -3548,7 +4301,11 @@
     "Album Art",
     "Progress Bar",
     "Hide When Stopped",
-    "media keybinds"
+    "media keybinds",
+    "Play / Pause Key",
+    "Next Key",
+    "Previous Key",
+    "Permission Needed"
    ],
    "bypass_reference": "anticheat-bypass.md#evidence-and-scope",
    "prerequisites": [
@@ -3625,7 +4382,12 @@
     "Title",
     "Rank",
     "Time Online",
-    "Heads"
+    "Heads",
+    "Status",
+    "Evidence",
+    "Show Hidden",
+    "Show Uncertain",
+    "Max Rows"
    ],
    "reference": "../SKILL.md#passive-identity-evidence-and-operational-statistics",
    "bypass_reference": "anticheat-bypass.md#evidence-and-scope",
@@ -3664,7 +4426,8 @@
     "Show (All Bound/Enabled)",
     "Title",
     "Dim Disabled",
-    "Hold Tag"
+    "Hold Tag",
+    "Show"
    ],
    "bypass_reference": "anticheat-bypass.md#evidence-and-scope",
    "prerequisites": [
@@ -3770,7 +4533,8 @@
    "hook": "end-of-tick sample + HUD render",
    "anticheat_notes": "Speed should keep its hud readout of observed speed; movement acceleration strategies are catalogued as movementspeed behavior local; separately validate any optional command, input or packet side effect.",
    "settings": [
-    "Unit (m/s, km/h, bps)"
+    "Unit (m/s, km/h, bps)",
+    "Unit"
    ],
    "bypass_reference": "anticheat-bypass.md#evidence-and-scope",
    "prerequisites": [
@@ -3840,7 +4604,15 @@
    "anticheat_notes": "TextHudReadouts should keep its single-line label:value readouts sharing a layout setting behavior local; separately validate any optional command, input or packet side effect.",
    "settings": [
     "Layout (Label First/Value First/Value Only/Bracketed)",
-    "per-readout toggles"
+    "per-readout toggles",
+    "Display",
+    "Show Yaw",
+    "Decimals",
+    "Item",
+    "Toggle Sprint",
+    "Toggle Sneak",
+    "Show Max",
+    "Absorption"
    ],
    "aliases": [
     "TextHud",
@@ -3897,7 +4669,8 @@
     "24 Hour",
     "Seconds",
     "Show Date",
-    "Analog Size"
+    "Analog Size",
+    "24 Hour Time"
    ],
    "bypass_reference": "anticheat-bypass.md#evidence-and-scope",
    "prerequisites": [
@@ -3933,7 +4706,10 @@
    "settings": [
     "presets",
     "Unlimited FPS",
-    "Chunk Builder Threads"
+    "Chunk Builder Threads",
+    "Balanced Preset",
+    "Max FPS Preset",
+    "Vanilla Defaults"
    ],
    "bypass_reference": "anticheat-bypass.md#evidence-and-scope",
    "prerequisites": [
@@ -3972,7 +4748,15 @@
     "FPS Threshold",
     "Hold Time",
     "per-effect toggles",
-    "Min render/sim distance"
+    "Min render/sim distance",
+    "Drop Vignette",
+    "Push Fog Back",
+    "Clouds Off",
+    "Minimal Particles",
+    "Lower Render Distance",
+    "Min Render Distance",
+    "Lower Simulation Distance",
+    "Min Simulation Distance"
    ],
    "bypass_reference": "anticheat-bypass.md#evidence-and-scope",
    "prerequisites": [
@@ -4042,7 +4826,15 @@
    "anticheat_notes": "EntityDistance should keep its vanilla entity-distance scaling + per-type render cutoffs behavior local; separately validate any optional command, input or packet side effect.",
    "settings": [
     "Entity Distance %",
-    "per-type max distance"
+    "per-type max distance",
+    "Entity Distance",
+    "Players",
+    "Hostile Mobs",
+    "Animals",
+    "Items & XP",
+    "Armor Stands & Frames",
+    "Projectiles",
+    "Everything Else"
    ],
    "bypass_reference": "anticheat-bypass.md#evidence-and-scope",
    "prerequisites": [
@@ -4078,7 +4870,10 @@
    "settings": [
     "Keep %",
     "Max Per Second",
-    "Cull Behind You/Walls"
+    "Cull Behind You/Walls",
+    "Keep",
+    "Cull Behind You",
+    "Cull Behind Walls"
    ],
    "bypass_reference": "anticheat-bypass.md#evidence-and-scope",
    "prerequisites": [
@@ -4332,7 +5127,47 @@
     "Item Browser",
     "Name Protect + Protected Name",
     "Recording Mode",
-    "Update Notifier"
+    "Update Notifier",
+    "Blur Menu Background",
+    "Menu Blur Strength",
+    "Animations",
+    "Auto-arrange Panels",
+    "Capture Backdrop",
+    "Multi-Keybinding",
+    "Allow Setting Keybinds",
+    "Auto Save",
+    "No Pause on Focus Loss",
+    "Show Tooltips",
+    "Module Conflicts",
+    "Notifications",
+    "Toggle Alert",
+    "Setting Toggle Alert",
+    "Profile Switch",
+    "Friend Notifications",
+    "One Open Module",
+    "HUD In Menus",
+    "Auto-load module states",
+    "Remote Control",
+    "Self Flag",
+    "Flight Debug Log",
+    "Translate Endpoint",
+    "Item Browser (REI)",
+    "Item Browser Theme",
+    "Item Browser Borders",
+    "Toggle Toasts",
+    "Toast Position",
+    "UI Sounds",
+    "UI Sound Volume",
+    "Sound Pack",
+    "Hover Sounds",
+    "Editor Hotbar Snap",
+    "Server Info Card",
+    "Name Protect",
+    "Protected Name",
+    "Hide Skin",
+    "Recording Mode Key",
+    "Recording Hides HUD",
+    "Recording Hides World Visuals"
    ],
    "bypass_reference": "anticheat-bypass.md#evidence-and-scope",
    "prerequisites": [
@@ -4368,7 +5203,38 @@
    "settings": [
     "HUD Font/Size/Spacing/Background/Corner/Padding/Border",
     "GUI Font/Scale/Opacity/Blur",
-    "Colors (Accent/Panel/Text/...)"
+    "Colors (Accent/Panel/Text/...)",
+    "HUD Font",
+    "HUD Font Size",
+    "HUD Letter Spacing",
+    "HUD Background",
+    "HUD Tint",
+    "HUD Corner Radius",
+    "HUD Padding",
+    "HUD Border",
+    "HUD Border Color",
+    "HUD Shadow",
+    "HUD Accent Bar",
+    "Label Color",
+    "Value Color",
+    "Text Shadow",
+    "Click GUI Font",
+    "Click GUI Corner Radius",
+    "Click GUI Scale",
+    "Panel Opacity",
+    "Animation Speed",
+    "Panel Shadow",
+    "Enabled Style",
+    "Row Dividers",
+    "Panel Blur",
+    "Blur Quality",
+    "Accent",
+    "Accent 2",
+    "Panel",
+    "Panel Header",
+    "Hover",
+    "Text",
+    "Text Dim"
    ],
    "bypass_reference": "anticheat-bypass.md#evidence-and-scope",
    "prerequisites": [
@@ -4488,7 +5354,8 @@
     "Window",
     "Only Sprinting",
     "With Aura",
-    "Blink (choke)"
+    "Blink (choke)",
+    "Direction"
    ],
    "bypass_reference": "anticheat-bypass.md#click-validation",
    "prerequisites": [
@@ -4527,7 +5394,12 @@
     "Speed/Flight/Aim-Snap toggles",
     "Confidence threshold",
     "Toast On Flag",
-    "On-screen Marker"
+    "On-screen Marker",
+    "Speed",
+    "Flight",
+    "Aim Snap",
+    "Confidence",
+    "Chat Alerts"
    ],
    "bypass_reference": "anticheat-bypass.md#evidence-and-scope",
    "prerequisites": [
@@ -4638,7 +5510,10 @@
     "Money/Token Labels",
     "Per Block",
     "Inventory Space",
-    "Reset Session"
+    "Reset Session",
+    "Only While Mining",
+    "BPS Window",
+    "Balances"
    ],
    "reference": "../SKILL.md#passive-identity-evidence-and-operational-statistics",
    "bypass_reference": "anticheat-bypass.md#evidence-and-scope",
@@ -4677,7 +5552,12 @@
     "Landing selection",
     "Planning budget",
     "Camera assistance",
-    "Recovery timeout"
+    "Recovery timeout",
+    "Drop Key",
+    "Scan Depth",
+    "Search Radius",
+    "Min Pool Depth",
+    "Auto Walk"
    ],
    "aliases": [
     "Auto Dropper"
@@ -4718,7 +5598,15 @@
     "Break schedule",
     "Reconnect destination",
     "Resume modules",
-    "Login commands"
+    "Login commands",
+    "Rest Every",
+    "Rest For",
+    "Pause Modules",
+    "Login Commands",
+    "Command Delay",
+    "Walk To Start",
+    "Start Coords",
+    "Set Start"
    ],
    "aliases": [
     "Auto Rest"
@@ -4758,7 +5646,9 @@
    "settings": [
     "Supported question modes",
     "Click pacing",
-    "Attempt limit"
+    "Attempt limit",
+    "Numbers Book",
+    "Delay"
    ],
    "aliases": [
     "VerificationMenu"
@@ -4798,7 +5688,12 @@
    "settings": [
     "Game types",
     "Response interval",
-    "Cooldown"
+    "Cooldown",
+    "Math",
+    "Unscramble",
+    "First to Type",
+    "Min Delay",
+    "Max Delay"
    ],
    "aliases": [
     "Chat Games"
@@ -4839,7 +5734,10 @@
     "Global level",
     "Rotation response",
     "Reaction timing",
-    "Optional rhythm modes"
+    "Optional rhythm modes",
+    "Humanization Level",
+    "Network Adaptation",
+    "Network Toasts"
    ],
    "bypass_reference": "anticheat-bypass.md#rotation-output",
    "prerequisites": [
@@ -4876,7 +5774,12 @@
    "settings": [
     "Movement correction",
     "Owner priority",
-    "View indicator"
+    "View indicator",
+    "Enabled",
+    "Movement",
+    "3rd Person Aim View",
+    "Aim Indicator",
+    "Indicator Color"
    ],
    "aliases": [
     "Silent Aim"
@@ -4916,7 +5819,8 @@
    "settings": [
     "Width",
     "Color",
-    "Depth policy"
+    "Depth policy",
+    "Opacity"
    ],
    "aliases": [
     "Block Outline"
@@ -4954,7 +5858,9 @@
    "anticheat_notes": "Verify the feature changes only rendering; optional gameplay inputs or packet hooks need separate validation.",
    "settings": [
     "Fog",
-    "Opacity"
+    "Opacity",
+    "No Water Fog",
+    "No Water Overlay"
    ],
    "aliases": [
     "Clear Water"
@@ -4993,7 +5899,13 @@
    "settings": [
     "Scale",
     "Offset",
-    "Bobbing"
+    "Bobbing",
+    "Main Hand Size",
+    "Main Hand X",
+    "Main Hand Y",
+    "Main Hand Z",
+    "Offhand Size",
+    "Hand Bobbing"
    ],
    "aliases": [
     "Hand"
@@ -5030,7 +5942,15 @@
    "hook": "render pass",
    "anticheat_notes": "Verify the feature changes only rendering; optional gameplay inputs or packet hooks need separate validation.",
    "settings": [
-    "Overlay types"
+    "Overlay types",
+    "Boss Bar",
+    "Scoreboard",
+    "Titles",
+    "Vignette & Overlays",
+    "Effect Icons",
+    "Held Item Name",
+    "Hide Pumpkin",
+    "Hide Powder Snow"
    ],
    "aliases": [
     "Hide Overlays"
@@ -5068,7 +5988,8 @@
    "anticheat_notes": "Verify the feature changes only rendering; optional gameplay inputs or packet hooks need separate validation.",
    "settings": [
     "Color",
-    "Opacity"
+    "Opacity",
+    "Hurt Color"
    ],
    "aliases": [
     "Hit Color"
@@ -5106,7 +6027,9 @@
    "anticheat_notes": "Verify the feature changes only rendering; optional gameplay inputs or packet hooks need separate validation.",
    "settings": [
     "Strength",
-    "Screen policy"
+    "Screen policy",
+    "Containers",
+    "Chat"
    ],
    "aliases": [
     "Inventory Blur"
@@ -5144,7 +6067,11 @@
    "anticheat_notes": "Verify the feature changes only rendering; optional gameplay inputs or packet hooks need separate validation.",
    "settings": [
     "Color",
-    "Intensity"
+    "Intensity",
+    "Glint Mode",
+    "Glint Tint",
+    "Glint Speed",
+    "Glint Strength"
    ],
    "aliases": [
     "Item Glint"
@@ -5182,7 +6109,10 @@
    "anticheat_notes": "Verify the feature changes only rendering; optional gameplay inputs or packet hooks need separate validation.",
    "settings": [
     "Rotation",
-    "Ground pose"
+    "Ground pose",
+    "Tumble Speed",
+    "Lie Flat",
+    "No Bobbing"
    ],
    "aliases": [
     "Item Physics"
@@ -5219,7 +6149,9 @@
    "hook": "render pass",
    "anticheat_notes": "Verify the feature changes only rendering; optional gameplay inputs or packet hooks need separate validation.",
    "settings": [
-    "Overlay height"
+    "Overlay height",
+    "Fire Offset",
+    "Fire Opacity"
    ],
    "aliases": [
     "Low Fire"
@@ -5256,7 +6188,8 @@
    "hook": "render pass",
    "anticheat_notes": "Verify the feature changes only rendering; optional gameplay inputs or packet hooks need separate validation.",
    "settings": [
-    "Strength"
+    "Strength",
+    "Tilt Strength"
    ],
    "aliases": [
     "No Hurt Cam"
@@ -5330,7 +6263,15 @@
    "hook": "render pass",
    "anticheat_notes": "Verify the feature changes only rendering; optional gameplay inputs or packet hooks need separate validation.",
    "settings": [
-    "Animation modes"
+    "Animation modes",
+    "1.7 Swing",
+    "Swing Scale",
+    "Sword Block",
+    "Hide Blocking Shield",
+    "Block Hit",
+    "1.7 Item Position",
+    "1.7 Rod",
+    "Armor Hit Flash"
    ],
    "aliases": [
     "Old Animations"
@@ -5368,7 +6309,10 @@
    "anticheat_notes": "Verify the feature changes only rendering; optional gameplay inputs or packet hooks need separate validation.",
    "settings": [
     "Hand offsets",
-    "Visibility"
+    "Visibility",
+    "Shield Offset",
+    "Lower While Blocking",
+    "Totem Offset"
    ],
    "aliases": [
     "Shield & Totem"
@@ -6589,7 +7533,10 @@
     "Visible",
     "Size",
     "Position",
-    "History limit"
+    "History limit",
+    "Mine Map HUD",
+    "Mine Map Size",
+    "Edit Mine Map HUD"
    ],
    "prerequisites": [
     "Current world/session and a named survey source"
@@ -6611,7 +7558,173 @@
    },
    "reference": "../SKILL.md#bounded-work-and-measurements",
    "bypass_reference": "anticheat-bypass.md#evidence-and-scope",
-   "anticheat_notes": "Validate the underlying actions separately; orchestration or local presentation does not establish server acceptance."
+   "anticheat_notes": "Validate the underlying actions separately; orchestration or local presentation does not establish server acceptance.",
+   "aliases": [
+    "MineMapHud",
+    "Mine Map"
+   ],
+   "features": [
+    {
+     "name": "Owning-module integration",
+     "behavior": "Keep visibility/size under the task that supplies the survey; the HUD editor controls position/scale and uses the same persisted visibility choice. Do not expose a second contradictory enable flag.",
+     "settings": [
+      "Mine Map HUD",
+      "Mine Map Size",
+      "Edit Mine Map HUD",
+      "Position"
+     ]
+    },
+    {
+     "name": "Observed map state",
+     "behavior": "Render remaining blocks, route, player heading, cleared-layer history and observed reset/scan progress from a bounded immutable raster. Distinguish unknown, empty, excluded and loaded states; show snapshot age.",
+     "settings": []
+    },
+    {
+     "name": "Editor and performance",
+     "behavior": "Provide a deterministic editor preview without starting the task. Rendering must not launch surveys, inspect remote chunks or send gameplay traffic; cap raster/history and share the existing work planner.",
+     "settings": []
+    }
+   ]
+  },
+  {
+   "id": "bps",
+   "name": "Bps",
+   "category": "hud",
+   "risk": "none",
+   "summary": "Rolling blocks-per-second readout from observed local break completions.",
+   "technique": "Observe manual and automated local destroy completions in a bounded rolling window; render optional session peak and decimals. Remote enchant/world changes are not automatically attributable player breaks.",
+   "hook": "local destroy completion + HUD render",
+   "settings": [
+    "Window",
+    "Show Peak",
+    "Decimals"
+   ],
+   "reference": "../SKILL.md#passive-identity-evidence-and-operational-statistics",
+   "bypass_reference": "anticheat-bypass.md#evidence-and-scope",
+   "anticheat_notes": "Use supported actions and current authoritative state; local predictions or quiet diagnostics do not establish server acceptance.",
+   "prerequisites": [
+    "A named completion source, sampling window and session boundary"
+   ],
+   "bypass_tips": [
+    "Count observed completions rather than held attack ticks or attempted starts; label local prediction separately from server acceptance.",
+    "Use one shared bounded sample stream for HUD consumers; reset source/session baselines and do no world scan in rendering."
+   ],
+   "flag_triggers": [
+    "Double-counting replay/prediction callbacks",
+    "Counting unrelated world/enchantment removals as player completions"
+   ],
+   "validation": {
+    "status": "target-validation-required",
+    "scenarios": [
+     "Manual versus automated completion, duplicate callbacks and session replacement",
+     "Empty/full windows, peak semantics, long stalls and bounded history"
+    ]
+   }
+  },
+  {
+   "id": "autoitemflip",
+   "name": "AutoItemFlip",
+   "category": "player",
+   "risk": "low",
+   "summary": "Create or accept matching item-flip listings, collect results and hand a single item to a selected partner.",
+   "technique": "Capture the main-hand item identity on enable. Setup creates one-item listings; Take accepts a matching item and configured creator. Observe round start/result, close only the owned rolling menu, collect acknowledged top-row storage items, then drop exactly one matched item and observe its handoff. Use refresh in the live list rather than reopening it repeatedly.",
+   "hook": "scoped tick state machine + incoming server results/pickup observations + native menu/command/drop adapters",
+   "settings": [
+    "Mode",
+    "Partner",
+    "List Title",
+    "Storage Title",
+    "Storage Button",
+    "Refresh Button",
+    "Refresh Delay",
+    "Confirm Title",
+    "Confirm Button",
+    "Storage Click Delay"
+   ],
+   "reference": "../SKILL.md#partner-item-transactions",
+   "bypass_reference": "anticheat-bypass.md#click-validation",
+   "anticheat_notes": "Use supported actions and current authoritative state; local predictions or quiet diagnostics do not establish server acceptance.",
+   "prerequisites": [
+    "Captured item/components and one available stake; empty cursor and usable inventory space",
+    "Known list/storage/optional confirmation selectors and attributed round results",
+    "Current player/world/connection and exclusive inventory/command ownership"
+   ],
+   "bypass_tips": [
+    "Revalidate the live menu instance, slot, source/destination and cursor before every dispatched click; the same title does not preserve an old click plan.",
+    "Match actual item identity separately from server-added listing lore; require the configured creator field and reject own, unrelated or ambiguous listings.",
+    "Find a unique Refresh control by normalized displayed text in non-player slots; a matching listing takes priority over refresh and ambiguous controls must not be clicked.",
+    "Pace actual storage interactions and observe source, cursor and destination changes. If the server returns an item, inspect current state and back off within a finite retry budget.",
+    "Wait for the attributed round result and actual inventory/pickup evidence; a rolling screen, closed menu or local drop attempt is not proof of a completed transfer."
+   ],
+   "flag_triggers": [
+    "Duplicate listing submission or a stale refresh/confirmation click",
+    "Display-name-only item matching or a partner name found in unrelated lore",
+    "Unobserved withdrawal, cursor contents or returned item followed by another blind click",
+    "An unrelated pickup treated as partner delivery"
+   ],
+   "validation": {
+    "status": "target-validation-required",
+    "scenarios": [
+     "Setup/Take, stacked versus single stake, component differences and changed held item",
+     "Styled Refresh name, duplicate controls, matching-listing priority and menu replacement",
+     "Rolling-menu closure, win/loss attribution, rejected/partial storage transfer and full inventory",
+     "One-item drop, entity spawn/pickup attribution, wrong recipient, timeout and disconnect/disable"
+    ]
+   },
+   "aliases": [
+    "Auto ItemFlip",
+    "ItemFlip"
+   ],
+   "features": [
+    {
+     "name": "Stake capture and preparation",
+     "behavior": "Capture one item including identity-relevant components; isolate one stake using acknowledged inventory actions. A missing offhand/main-inventory stake or no free destination needs user action.",
+     "settings": []
+    },
+    {
+     "name": "Setup and Take",
+     "behavior": "Setup submits a heads/tails choice through the server command adapter, then waits for a real counterparty. Take searches only matching listings and an explicitly configured exact creator; use a partner filter for a paired loop.",
+     "settings": [
+      "Mode",
+      "Partner"
+     ]
+    },
+    {
+     "name": "Menu discovery and refresh",
+     "behavior": "Normalize formatting before comparing titles and displayed control names. Parameterize list/storage/confirmation selectors. Refresh only the recognized list; never reuse a stale slot or pick an ambiguous button.",
+     "settings": [
+      "List Title",
+      "Storage Title",
+      "Storage Button",
+      "Refresh Button",
+      "Refresh Delay",
+      "Confirm Title",
+      "Confirm Button"
+     ]
+    },
+    {
+     "name": "Round lifecycle",
+     "behavior": "Recognize the attributed round-start/result source, close the owned rolling view, and distinguish win, loss, timeout and an unrelated participant. Do not close arbitrary user-opened menus.",
+     "settings": []
+    },
+    {
+     "name": "Storage withdrawal",
+     "behavior": "Restrict withdrawals to the intended storage region, such as the configured top row. Pace real clicks; confirm cursor/source/destination changes, allow partial transfers and stop on unresolved state.",
+     "settings": [
+      "Storage Click Delay"
+     ]
+    },
+    {
+     "name": "Partner handoff",
+     "behavior": "After collecting a confirmed win, drop exactly one matched item through the native single-item action. Track the new item entity and attributed pickup rather than treating disappearance or a local inventory delta alone as delivery. A loss waits for the stake to return.",
+     "settings": []
+    },
+    {
+     "name": "Cancellation and conflicts",
+     "behavior": "A mode/partner, item, world or account change starts a new engagement. Stop competing inventory/command tasks; cancellation releases only owned selections and never guesses where to place a cursor stack.",
+     "settings": []
+    }
+   ]
   }
  ],
  "entry_contract": {
@@ -6620,7 +7733,9 @@
   "flag_triggers": "Known inconsistency/failure paths to investigate, not invented server check names.",
   "validation": "Required scenarios, not a claim of executed validation. Optional evidence records identify kind, source, scope and result.",
   "aliases": "Equivalent labels/renames, not a second independent implementation. TextHudReadouts covers grouped HUD readouts. Speed is a HUD readout; MovementSpeed is the movement strategy.",
-  "id": "Permanent unique catalogue ID, independent of label/category/class name; retain it when renaming."
+  "id": "Permanent unique catalogue ID, independent of label/category/class name; retain it when renaming.",
+  "features": "Optional named behavior groups with associated settings. Read these for detailed state transitions, independence, recovery and observed-result requirements; example values and selectors are adapter choices, not universal protocol rules.",
+  "settings": "Configuration labels and conceptual groups, not a fixed API. Directly declared settings are inventoried alongside existing groups; inherited HUD/layout, dynamically generated controls and platform-specific additions still require source inspection."
  },
  "schema_version": 1
 }

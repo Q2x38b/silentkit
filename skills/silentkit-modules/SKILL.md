@@ -14,11 +14,14 @@ A build reference for the behaviour layer of a ghost client. It is deliberately 
 *patterns and math*, not any one project's code. API names are illustrative (modern Minecraft-style), but the ideas
 port to any game/engine with a tick loop, an input pipeline, and an outgoing-packet path.
 
-Validate catalogue edits with `python3 scripts/validate_catalogue.py` from this skill directory; the local
-`references/modules.schema.json` defines its format. Stable IDs identify capabilities, not Java class names.
+The local `references/modules.schema.json` defines the catalogue format. Stable IDs identify capabilities, not Java
+class names. The guidance is usable directly; running a helper script is not a prerequisite for applying this skill.
 
 The companion file `references/modules.json` is a structured catalogue of every module and technique below — query it
 instead of re-reading prose when you need "which modules exist / what does X do / what signals does Y use."
+Composite entries also have `features`: named behavior groups, their settings and important transitions. Resolve
+aliases before treating a HUD/feature name as a missing module. Setting inventories include direct declarations and
+conceptual groups; inspect inherited, dynamic and platform-specific controls when an exact implementation is needed.
 
 **Evidence rule of thumb.** Numerical examples and bypass ideas need version/server-specific validation. Separate
 implemented fixes, source-confirmed pitfalls, simulation results and live observations. A local Self-Flag warning is
@@ -535,6 +538,21 @@ before execution, try other valid neighbors, and distinguish an interaction bein
 change. A full-face requirement is a conservative policy, not a universal placement rule. Emergency waiting starts
 with the current attempt, not an uninitialized last-success timestamp.
 
+### Partner item transactions
+
+For paired listing/trade loops, capture item identity separately from server-added presentation metadata, and match
+the configured counterparty in an attributed creator/result field. Item type or display name alone is insufficient;
+ambiguous listings and unexpected participants stop the transaction. Require an explicit single-item preparation
+step when a stack must become one stake, and observe inventory acknowledgement before submitting a command.
+
+Treat list, confirmation, rolling/result and storage screens as different states. Find controls by normalized
+display text plus current layout/slot ownership; resolve a unique refresh control rather than reopening a list on
+every poll. A valid matching listing takes priority over refresh. Pace actual storage clicks and observe source,
+cursor and destination changes, including server-returned items. Close only the task-owned rolling menu. Distinguish
+round completion, withdrawal and partner delivery: attribute pickup of the new dropped item entity before another
+round, and bound every wait/retry. These contracts are detailed in the `AutoItemFlip` catalogue entry; command names,
+titles, storage regions and result phrases belong to the server adapter.
+
 ### Navigation and multi-stage tasks
 
 Use observed transitions such as `select goal → route → approach → settle view → act → observe result → recover`.
@@ -566,6 +584,37 @@ separate verified edges, not as universal jumps. Reject unsupported transitions 
 Exercise same-title/new-container IDs, cursor changes between clicks, partial/rejected transfers, manual slot
 changes, disable/re-enable, competing owners, effect changes, multi-platform routes, medium transitions, trapped
 banks and context loss. Fake clocks, click/send adapters and terrain fixtures avoid mutating real inventory in tests.
+
+### Progressive terrain and interrupted tasks
+
+A reset or large area-clearing effect can change reference height and refill terrain over several updates. Keep
+navigation toward observed reachable work separate from full-survey completion and descent permission. Use a stable
+interior seed and a new terrain generation after a teleport; update the affected survey incrementally instead of
+restarting it on every block event. Preserve a safe active pass while rebuilding. Unknown/protected cells cannot be
+counted as cleared, and a newly exposed patch does not establish that the entire layer is complete. A small density
+bonus can rank the next path using work per travel distance, including approach cost, without redirecting every tick.
+
+Keep held movement continuous through equivalent safe choices rather than clearing/re-pressing keys on every tick.
+Use a modest preference or hysteresis around direction ties; safety/braking vetoes, menus and lost ownership must
+release immediately. When no work is reachable, follow the route view or settle it instead of chasing invalid aim
+points. Neither density scoring nor input retention may override physical eligibility.
+
+Disconnection recovery is a new task engagement, not continuation of the old action queue. Classify the actual
+disconnect reason, arbitrate one reconnect owner, apply finite cooldowns/retries and retain the intended account and
+destination. After a fresh stable playable world, reconstruct routes and restore only permitted intent. If a server
+command toggles an ability, skip it when authoritative permission already exists; otherwise submit it once and wait
+for permission before acting. User cancellation, changed identity/destination, rejected login or missing permission
+ends recovery. A packet-rate kick needs a separate traffic investigation; reconnection does not fix its cause.
+
+### Server capability triggers
+
+Observe incoming server messages at their verified source independently of display/chat filters. Normalize styling
+and spacing before matching an adapter-defined ready phrase; do not infer readiness from arbitrary player chat.
+Latch unused readiness while another owned task completes, then revalidate item/hand, player/session and input
+ownership. Preparation, activation attempt, server confirmation and the timed effect are separate states. For a rod
+ability, resolve an existing hook, perform the required activation inputs, and observe each cast/landing/retraction
+instead of blindly alternating clicks. Expiry or interruption must not replay a consumed activation. The fishing
+catalogue entry describes navigation, selling, cleanup, water combat and ability handling as independent features.
 
 ### Passive identity evidence and operational statistics
 

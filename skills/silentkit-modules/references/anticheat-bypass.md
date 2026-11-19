@@ -141,6 +141,12 @@ fresh baselines. A bounded recovery may settle/replan through normal inputs; rep
 or failed acknowledgement should stop the task. Touching ground or walking a short distance is not evidence that a
 server's suspicion/violation state reset. Never suppress correction processing to make a local trace look clean.
 
+A packet-rate disconnect is traffic evidence, not a movement-check diagnosis. Compare actual dispatched packet types,
+counts and ordering with the same manual task; held attack ticks, queued callbacks and replayed send hooks are not
+additional confirmed actions. Keep any configured reconnect recovery finite and scoped to the original account and
+destination, rebuild fresh action state, and observe server-granted abilities before resuming. A cooldown or successful
+rejoin neither increases the server's packet allowance nor establishes that the original defect was repaired.
+
 Measure real RTT, jitter and observed spikes. An assumed `lag_window - ping` formula is not a universal allowance for
 old positions, backtrack or delayed combat. Delaying/forging latency measurements or accelerating the packet clock
 does not create extra permission. Compare normal and automated runs under the same measurable conditions.
